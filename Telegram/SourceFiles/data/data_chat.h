@@ -23,6 +23,7 @@ enum class ChatDataFlag {
 	CallNotEmpty = (1 << 6),
 	CanSetUsername = (1 << 7),
 	NoForwards = (1 << 8),
+	HasWelcomeMessages = (1 << 9),
 
 	AyuNoForwards = (1 << 31),
 };
@@ -96,12 +97,15 @@ public:
 		return (_migratedTo != nullptr);
 	}
 
+	[[nodiscard]] bool hasWelcomeMessages() const {
+		return flags() & ChatDataFlag::HasWelcomeMessages;
+	}
+
 	[[nodiscard]] ChatAdminRightsInfo defaultAdminRights(
 		not_null<UserData*> user);
 
 	// Like in ChannelData.
 	[[nodiscard]] bool allowsForwarding() const;
-	[[nodiscard]] bool isAyuNoForwards() const;
 	[[nodiscard]] bool canEditInformation() const;
 	[[nodiscard]] bool canEditPermissions() const;
 	[[nodiscard]] bool canEditUsername() const;

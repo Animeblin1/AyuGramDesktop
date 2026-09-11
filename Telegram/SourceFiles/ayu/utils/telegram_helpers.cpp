@@ -1576,6 +1576,9 @@ void applyGhostScheduling(
 		not_null<Main::Session*> session,
 		Api::SendOptions &options,
 		int delaySeconds) {
+	if (options.welcomeTemplate) {
+		return;
+	}
 	const auto &ghost = AyuSettings::ghost(session);
 	if (ghost.isUseScheduledMessages() && !options.scheduled) {
 		const auto delay = Core::App().settings().proxy().isEnabled()
