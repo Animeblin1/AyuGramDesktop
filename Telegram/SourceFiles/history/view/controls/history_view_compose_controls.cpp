@@ -4988,7 +4988,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
 		- (_botKeyboardShow ? _botKeyboardShow->width() : 0)
 		- (_botKeyboardHide ? _botKeyboardHide->width() : 0)
 		- ((_ttlInfo
-			&& !_ttlInfo->isHidden()
+			&& _ttlInfo->isVisible()
 			&& settings.showAutoDeleteButtonInMessageField())
 			? _ttlInfo->width()
 			: 0)
