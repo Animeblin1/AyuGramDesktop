@@ -1642,7 +1642,9 @@ void processOutgoingTikTokLinks(TextWithEntities &text, bool hide) {
 		QString proxied;
 	};
 	auto links = std::vector<Link>();
-	for (const auto &match : kRegExp.globalMatch(text.text)) {
+	auto it = kRegExp.globalMatch(text.text);
+	while (it.hasNext()) {
+		const auto match = it.next();
 		auto link = match.captured(0);
 		while (!link.isEmpty() && kTrailing.contains(link.back())) {
 			link.chop(1);
@@ -1672,7 +1674,7 @@ void processOutgoingTikTokLinks(TextWithEntities &text, bool hide) {
 		}
 		TextUtilities::Trim(text);
 		const auto base = int(text.text.size());
-		text.text += QString(links.size(), QChar(u'\x00AD'));
+		text.text += QString(int(links.size()), QChar(u'\x00AD'));
 		for (auto i = 0; i < links.size(); ++i) {
 			text.entities.push_back(EntityInText(
 				EntityType::CustomUrl,
