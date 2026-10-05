@@ -103,6 +103,23 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 	box->setWidth(st::aboutWidth);
 }
 
+QString telegramFaqLink() {
+	const auto result = u"https://telegram.org/faq"_q;
+	const auto langpacked = [&](const char *language) {
+		return result + '/' + language;
+	};
+	const auto current = Lang::Id();
+	for (const auto language : { "de", "es", "it", "ko" }) {
+		if (current.startsWith(QLatin1String(language))) {
+			return langpacked(language);
+		}
+	}
+	if (current.startsWith(u"pt-br"_q)) {
+		return langpacked("br");
+	}
+	return result;
+}
+
 namespace {
 
 [[nodiscard]] QString CurrentVersionText(bool withCommit) {
@@ -284,3 +301,4 @@ void ArchiveHintBox(
 		box->addButton(std::move(button));
 	}
 }
+

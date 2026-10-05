@@ -1041,8 +1041,8 @@ void Message::refreshRightBadge() {
 	if (const auto badge = Get<RightBadge>(); badge && badge->overridden) {
 		return;
 	}
-	if ((hasOutLayout() || context() == Context::WelcomeMessages)
-			&& !AyuFeatures::MessageShot::isTakingShot()) {
+	if ((hasOutLayout() && !AyuFeatures::MessageShot::isTakingShot())
+		|| context() == Context::WelcomeMessages) {
 		if (Has<RightBadge>()) {
 			RemoveComponents(RightBadge::Bit());
 		}

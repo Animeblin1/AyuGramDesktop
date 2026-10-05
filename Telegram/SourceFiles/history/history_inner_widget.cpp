@@ -646,9 +646,23 @@ Main::Session &HistoryInner::session() const {
 void HistoryInner::setupSharingDisallowed() {
 	Expects(_peer != nullptr);
 
-	_sharingDisallowed = Data::AllowsForwardingValue(
-		_peer
-	) | rpl::map([](bool) { return false; });
+	if (const auto user = _peer->asUser()) {
+		_sharingDisallowed = rpl::combine(
+			Data::PeerFlagValue(user, UserDataFlag::NoForwardsMyEnabled),
+			Data::PeerFlagValue(user, UserDataFlag::NoForwardsPeerEnabled)
+		) | rpl::map([](bool, bool) {
+			return false;
+		});
+	} else {
+		const auto chat = _peer->asChat();
+		const auto channel = _peer->asChannel();
+		_sharingDisallowed = chat
+			? Data::PeerFlagValue(chat, ChatDataFlag::NoForwards)
+			: Data::PeerFlagValue(
+				channel,
+				ChannelDataFlag::NoForwards
+			) | rpl::type_erased;
+	}
 
 	const auto clearIfRestricted = [=] {
 		if (hasSelectRestriction() && !getSelectedItems().empty()) {

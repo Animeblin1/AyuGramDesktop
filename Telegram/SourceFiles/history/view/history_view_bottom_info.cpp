@@ -502,6 +502,8 @@ void BottomInfo::layoutDateText() {
 			: QString();
 		const auto edited = editedPrimary
 			? QString()
+			: updated
+			? (tr::lng_ephemeral_updated(tr::now) + ' ')
 			: (_data.flags & Data::Flag::Edited)
 			? (settings.editedMark() + ' ')
 			: (_data.flags & Data::Flag::EstimateDate)
@@ -564,15 +566,15 @@ void BottomInfo::layoutDateText() {
 			Ui::NameTextOptions(),
 			helper.context());
 	} else {
-		const auto editedIcon = !editedPrimary
+		const auto editedIcon = !updated && !editedPrimary
 			&& (_data.flags & Data::Flag::Edited);
 
 		TextWithEntities edited;
-		if (editedIcon) {
+		if (updated) {
+			edited.append(tr::lng_ephemeral_updated(tr::now)).append(' ');
+		} else if (editedIcon) {
 			edited = Ui::Text::IconEmoji(&st::editedIcon);
 			edited.append(' ');
-		} else if (!editedPrimary && updated) {
-			edited = TextWithEntities{ tr::lng_ephemeral_updated(tr::now) + ' ' };
 		} else if (!editedPrimary && (_data.flags & Data::Flag::EstimateDate)) {
 			edited = TextWithEntities{ tr::lng_approximate(tr::now) + ' ' };
 		} else if (!editedPrimary && _data.scheduleRepeatPeriod) {
