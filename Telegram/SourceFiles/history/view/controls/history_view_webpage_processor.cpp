@@ -18,9 +18,21 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/utils/telegram_helpers.h"
+#include "ayu/ayu_settings.h"
 
 
 namespace HistoryView::Controls {
+
+void ApplyLargeMediaForVideo(Data::WebPageDraft &draft, WebPageData *page) {
+	if (!page || !page->document) {
+		return;
+	}
+	const auto &settings = AyuSettings::getInstance();
+	if (!settings.improveLinkPreviews() || draft.forceSmallMedia) {
+		return;
+	}
+	draft.forceLargeMedia = true;
+}
 
 WebPageText TitleAndDescriptionFromWebPage(not_null<WebPageData*> d) {
 	QString resultTitle, resultDescription;
@@ -215,6 +227,7 @@ WebpageProcessor::WebpageProcessor(
 	}) | rpl::on_next([=] {
 		_draft.id = _data->id;
 		_draft.url = _data->url;
+		ApplyLargeMediaForVideo(_draft, _data);
 		updateFromData();
 	}, _lifetime);
 
@@ -235,6 +248,7 @@ WebpageProcessor::WebpageProcessor(
 			_draft.id = _data->id;
 			_draft.url = _data->url;
 			_draft.previewChanged = (getBetterLinkPreview(link) != link);
+			ApplyLargeMediaForVideo(_draft, _data);
 			updateFromData();
 		} else {
 			_links = QStringList();
@@ -399,6 +413,7 @@ void WebpageProcessor::checkPreview() {
 		_draft.id = _data->id;
 		_draft.url = _data->url;
 		_draft.previewChanged = (getBetterLinkPreview(chosen) != chosen);
+		ApplyLargeMediaForVideo(_draft, _data);
 	} else {
 		_data = nullptr;
 		_draft = {};

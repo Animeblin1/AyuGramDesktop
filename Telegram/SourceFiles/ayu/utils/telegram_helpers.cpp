@@ -1557,7 +1557,7 @@ QString getBetterLinkPreview(const QString &url) {
 	if (host == u"twitter.com"_q || host == u"x.com"_q) {
 		parsed.setHost(u"fixupx.com"_q);
 	} else if (host == u"tiktok.com"_q || host.endsWith(u".tiktok.com"_q)) {
-		host.replace(u"tiktok.com"_q, u"kktiktok.com"_q);
+		host.replace(u"tiktok.com"_q, u"tiktokfix.com"_q);
 		parsed.setHost(host);
 	} else if (host == u"reddit.com"_q || host == u"www.reddit.com"_q) {
 		parsed.setHost(u"vxreddit.com"_q);
