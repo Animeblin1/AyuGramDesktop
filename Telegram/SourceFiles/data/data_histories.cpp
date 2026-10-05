@@ -133,7 +133,7 @@ MTPInputMedia WebPageForMTP(
 		const Data::WebPageDraft &draft,
 		bool required) {
 	using Flag = MTPDinputMediaWebPage::Flag;
-	const auto url = getBetterLinkPreview(draft.url);
+	const auto url = getBetterLinkPreview(draft.url, AyuSettings::getInstance().tiktokProxyOutgoing());
 	return MTP_inputMediaWebPage(
 		MTP_flags((draft.previewChanged ? Flag() : Flag::f_optional)
 			| (draft.forceLargeMedia ? Flag::f_force_large_media : Flag())

@@ -82,6 +82,20 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SendWithoutSoundOption, {
 	{SendWithoutSoundOption::Always, 2},
 })
 
+enum class TikTokProxyHost {
+	TikTokFix = 0,
+	Tnktok = 1,
+	TikTokEZ = 2,
+	KKTikTok = 3,
+};
+
+NLOHMANN_JSON_SERIALIZE_ENUM(TikTokProxyHost, {
+	{TikTokProxyHost::TikTokFix, 0},
+	{TikTokProxyHost::Tnktok, 1},
+	{TikTokProxyHost::TikTokEZ, 2},
+	{TikTokProxyHost::KKTikTok, 3},
+})
+
 class GhostModeAccountSettings {
 public:
 	GhostModeAccountSettings();
@@ -349,6 +363,9 @@ public:
 	[[nodiscard]] TranslationProvider translationProvider() const { return _translationProvider.current(); }
 	[[nodiscard]] bool adaptiveCoverColor() const { return _adaptiveCoverColor.current(); }
 	[[nodiscard]] bool improveLinkPreviews() const { return _improveLinkPreviews.current(); }
+	[[nodiscard]] TikTokProxyHost tiktokProxyIncoming() const { return _tiktokProxyIncoming.current(); }
+	[[nodiscard]] TikTokProxyHost tiktokProxyOutgoing() const { return _tiktokProxyOutgoing.current(); }
+	[[nodiscard]] bool hideOutgoingProxyLinks() const { return _hideOutgoingProxyLinks.current(); }
 	[[nodiscard]] bool crashReporting() const { return _crashReporting.current(); }
 	[[nodiscard]] int avatarCorners() const { return _avatarCorners.current(); }
 	[[nodiscard]] bool singleCornerRadius() const { return _singleCornerRadius.current(); }
@@ -436,6 +453,9 @@ public:
 	void setTranslationProvider(TranslationProvider val);
 	void setAdaptiveCoverColor(bool val);
 	void setImproveLinkPreviews(bool val);
+	void setTiktokProxyIncoming(TikTokProxyHost val);
+	void setTiktokProxyOutgoing(TikTokProxyHost val);
+	void setHideOutgoingProxyLinks(bool val);
 	void setCrashReporting(bool val);
 	void setAvatarCorners(int val);
 	void setSingleCornerRadius(bool val);
@@ -707,6 +727,9 @@ private:
 	rpl::variable<TranslationProvider> _translationProvider = TranslationProvider::Telegram;
 	rpl::variable<bool> _adaptiveCoverColor = true;
 	rpl::variable<bool> _improveLinkPreviews = false;
+	rpl::variable<TikTokProxyHost> _tiktokProxyIncoming = TikTokProxyHost::TikTokFix;
+	rpl::variable<TikTokProxyHost> _tiktokProxyOutgoing = TikTokProxyHost::TikTokFix;
+	rpl::variable<bool> _hideOutgoingProxyLinks = false;
 	rpl::variable<bool> _crashReporting = true;
 	rpl::variable<int> _avatarCorners = 23;
 	rpl::variable<bool> _singleCornerRadius = false;

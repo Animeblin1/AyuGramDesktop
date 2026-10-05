@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/sender.h"
 #include "data/stickers/data_stickers_set.h"
 #include "data/data_messages.h"
+#include "data/data_types.h"
 
 class TaskQueue;
 class HistoryItem;
@@ -269,6 +270,8 @@ public:
 	void requestWebPageDelayed(not_null<WebPageData*> page);
 	void clearWebPageRequest(not_null<WebPageData*> page);
 	void clearWebPageRequests();
+
+	void requestProxiedIncomingWebPage(not_null<WebPageData*> page);
 
 	void scheduleStickerSetRequest(uint64 setId, uint64 access);
 	void requestStickerSets();
@@ -682,6 +685,7 @@ private:
 		std::pair<mtpRequestId,Fn<void()>>> _historyArchivedRequests;
 
 	base::flat_map<not_null<WebPageData*>, mtpRequestId> _webPagesPending;
+	base::flat_set<WebPageId> _ayuProxiedWebPages;
 	base::Timer _webPagesTimer;
 
 	struct StickerSetRequest {

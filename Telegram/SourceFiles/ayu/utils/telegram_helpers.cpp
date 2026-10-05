@@ -1541,7 +1541,17 @@ void getRegistrationDate(not_null<PeerData*> peer, Fn<void(TextWithEntities)> ca
 	}
 }
 
-QString getBetterLinkPreview(const QString &url) {
+[[nodiscard]] QString tiktokProxyDomain(TikTokProxyHost host) {
+	switch (host) {
+	case TikTokProxyHost::Tnktok: return u"tnktok.com"_q;
+	case TikTokProxyHost::TikTokEZ: return u"tiktokez.com"_q;
+	case TikTokProxyHost::KKTikTok: return u"kktiktok.com"_q;
+	case TikTokProxyHost::TikTokFix: break;
+	}
+	return u"tiktokfix.com"_q;
+}
+
+QString getBetterLinkPreview(const QString &url, TikTokProxyHost tiktokProxy) {
 	const auto &settings = AyuSettings::getInstance();
 	if (!settings.improveLinkPreviews()) {
 		return url;
@@ -1557,7 +1567,7 @@ QString getBetterLinkPreview(const QString &url) {
 	if (host == u"twitter.com"_q || host == u"x.com"_q) {
 		parsed.setHost(u"fixupx.com"_q);
 	} else if (host == u"tiktok.com"_q || host.endsWith(u".tiktok.com"_q)) {
-		host.replace(u"tiktok.com"_q, u"tiktokfix.com"_q);
+		host.replace(u"tiktok.com"_q, tiktokProxyDomain(tiktokProxy));
 		parsed.setHost(host);
 	} else if (host == u"reddit.com"_q || host == u"www.reddit.com"_q) {
 		parsed.setHost(u"vxreddit.com"_q);
@@ -1570,6 +1580,124 @@ QString getBetterLinkPreview(const QString &url) {
 	}
 
 	return parsed.toString();
+}
+
+void replaceTextRange(
+		TextWithEntities &text,
+		int start,
+		int end,
+		const QString &replacement) {
+	const auto delta = (end - start) - int(replacement.size());
+	auto kept = EntitiesInText();
+	kept.reserve(text.entities.size());
+	for (const auto &entity : text.entities) {
+		const auto entityStart = entity.offset();
+		const auto entityEnd = entityStart + entity.length();
+		if (entityEnd <= start) {
+			kept.push_back(entity);
+			continue;
+		} else if (entityStart >= end) {
+			kept.push_back(EntityInText(
+				entity.type(),
+				entityStart - delta,
+				entity.length(),
+				entity.data()));
+			continue;
+		}
+		const auto headLen = std::max(0, start - entityStart);
+		const auto tailLen = std::max(0, entityEnd - end);
+		if (headLen > 0) {
+			kept.push_back(EntityInText(
+				entity.type(),
+				entityStart,
+				headLen,
+				entity.data()));
+		}
+		if (tailLen > 0) {
+			kept.push_back(EntityInText(
+				entity.type(),
+				start + int(replacement.size()),
+				tailLen,
+				entity.data()));
+		}
+	}
+	text.text = text.text.left(start) + replacement + text.text.mid(end);
+	text.entities = std::move(kept);
+}
+
+void processOutgoingTikTokLinks(TextWithEntities &text, bool hide) {
+	const auto &settings = AyuSettings::getInstance();
+	if (!settings.improveLinkPreviews()) {
+		return;
+	}
+
+	static const auto kRegExp = QRegularExpression(
+		u"https?://(?:m\\.|vt\\.|vm\\.|www\\.)?tiktok\\.com/[^\\s\\)\\]>\"',]*"_q,
+		QRegularExpression::CaseInsensitiveOption);
+	static const auto kTrailing = u".,!?;:)]}"_q;
+
+	struct Link {
+		int start = 0;
+		int end = 0;
+		QString proxied;
+	};
+	auto links = std::vector<Link>();
+	for (const auto &match : kRegExp.globalMatch(text.text)) {
+		auto link = match.captured(0);
+		while (!link.isEmpty() && kTrailing.contains(link.back())) {
+			link.chop(1);
+		}
+		if (link.isEmpty()) {
+			continue;
+		}
+		const auto start = int(match.capturedStart(0));
+		auto proxied = getBetterLinkPreview(link, settings.tiktokProxyOutgoing());
+		if (proxied == link) {
+			continue;
+		}
+		links.push_back({
+			start,
+			start + int(link.size()),
+			std::move(proxied),
+		});
+	}
+	if (links.empty()) {
+		return;
+	}
+
+	if (hide) {
+		for (auto i = links.size(); i > 0; --i) {
+			const auto &link = links[i - 1];
+			replaceTextRange(text, link.start, link.end, QString());
+		}
+		TextUtilities::Trim(text);
+		const auto base = int(text.text.size());
+		text.text += QString(links.size(), QChar(u'\x00AD'));
+		for (auto i = 0; i < links.size(); ++i) {
+			text.entities.push_back(EntityInText(
+				EntityType::CustomUrl,
+				base + i,
+				1,
+				links[i].proxied));
+		}
+		return;
+	}
+
+	for (auto i = links.size(); i > 0; --i) {
+		const auto &link = links[i - 1];
+		replaceTextRange(text, link.start, link.end, link.proxied);
+		text.entities.push_back(EntityInText(
+			EntityType::CustomUrl,
+			link.start,
+			int(link.proxied.size()),
+			link.proxied));
+	}
+	std::sort(
+		text.entities.begin(),
+		text.entities.end(),
+		[](const EntityInText &a, const EntityInText &b) {
+			return a.offset() < b.offset();
+		});
 }
 
 void applyGhostScheduling(

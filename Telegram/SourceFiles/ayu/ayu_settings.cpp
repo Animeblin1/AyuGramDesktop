@@ -507,6 +507,8 @@ void AyuSettings::validate() {
 	validateEnum(_showMessageDetailsInContextMenu, defaults._showMessageDetailsInContextMenu);
 	validateEnum(_showRepeatMessageInContextMenu, defaults._showRepeatMessageInContextMenu);
 	validateEnum(_showAddFilterInContextMenu, defaults._showAddFilterInContextMenu);
+	validateEnum(_tiktokProxyIncoming, defaults._tiktokProxyIncoming, 3);
+	validateEnum(_tiktokProxyOutgoing, defaults._tiktokProxyOutgoing, 3);
 
 	validateEnum(_translationProvider, defaults._translationProvider, 3);
 	if ((_translationProvider.current() == TranslationProvider::Native)
@@ -1042,6 +1044,24 @@ void AyuSettings::setImproveLinkPreviews(bool val) {
 	save();
 }
 
+void AyuSettings::setTiktokProxyIncoming(TikTokProxyHost val) {
+	if (_tiktokProxyIncoming.current() == val) return;
+	_tiktokProxyIncoming = val;
+	save();
+}
+
+void AyuSettings::setTiktokProxyOutgoing(TikTokProxyHost val) {
+	if (_tiktokProxyOutgoing.current() == val) return;
+	_tiktokProxyOutgoing = val;
+	save();
+}
+
+void AyuSettings::setHideOutgoingProxyLinks(bool val) {
+	if (_hideOutgoingProxyLinks.current() == val) return;
+	_hideOutgoingProxyLinks = val;
+	save();
+}
+
 void AyuSettings::setCrashReporting(bool val) {
 	if (_crashReporting.current() == val) return;
 	_crashReporting = val;
@@ -1161,6 +1181,9 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"translationProvider", s._translationProvider.current()},
 		{"adaptiveCoverColor", s._adaptiveCoverColor.current()},
 		{"improveLinkPreviews", s._improveLinkPreviews.current()},
+		{"tiktokProxyIncoming", s._tiktokProxyIncoming.current()},
+		{"tiktokProxyOutgoing", s._tiktokProxyOutgoing.current()},
+		{"hideOutgoingProxyLinks", s._hideOutgoingProxyLinks.current()},
 		{"crashReporting", s._crashReporting.current()},
 		{"avatarCorners", s._avatarCorners.current()},
 		{"singleCornerRadius", s._singleCornerRadius.current()},
@@ -1265,6 +1288,9 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._translationProvider = j.value("translationProvider", defaults._translationProvider.current());
 	s._adaptiveCoverColor = j.value("adaptiveCoverColor", defaults._adaptiveCoverColor.current());
 	s._improveLinkPreviews = j.value("improveLinkPreviews", defaults._improveLinkPreviews.current());
+	s._tiktokProxyIncoming = j.value("tiktokProxyIncoming", defaults._tiktokProxyIncoming.current());
+	s._tiktokProxyOutgoing = j.value("tiktokProxyOutgoing", defaults._tiktokProxyOutgoing.current());
+	s._hideOutgoingProxyLinks = j.value("hideOutgoingProxyLinks", defaults._hideOutgoingProxyLinks.current());
 	s._crashReporting = j.value("crashReporting", defaults._crashReporting.current());
 	s._avatarCorners = j.value("avatarCorners", defaults._avatarCorners.current());
 	s._singleCornerRadius = j.value("singleCornerRadius", defaults._singleCornerRadius.current());

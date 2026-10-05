@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/utils/telegram_helpers.h"
+#include "ayu/ayu_settings.h"
 
 
 namespace Api {
@@ -250,6 +251,9 @@ void SendExistingMedia(
 		TextUtilities::ConvertTextTagsToEntities(message.textWithTags.tags)
 	};
 	TextUtilities::Trim(caption);
+	processOutgoingTikTokLinks(
+		caption,
+		AyuSettings::getInstance().hideOutgoingProxyLinks());
 	const auto captionNormalized = reverseLocalPremiumEmoji(caption, history);
 	auto sentEntities = EntitiesToMTP(
 		session,
@@ -1042,6 +1046,9 @@ struct ConfirmedLocalFile {
 		session->user()).flags;
 	TextUtilities::PrepareForSending(caption, prepareFlags);
 	TextUtilities::Trim(caption);
+	processOutgoingTikTokLinks(
+		caption,
+		AyuSettings::getInstance().hideOutgoingProxyLinks());
 	return caption;
 }
 

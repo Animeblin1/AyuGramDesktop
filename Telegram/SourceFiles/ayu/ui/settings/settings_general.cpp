@@ -235,6 +235,42 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.getter = &AyuSettings::improveLinkPreviews,
 		.setter = &AyuSettings::setImproveLinkPreviews,
 	});
+
+	const auto proxyOptions = std::vector<QString>{
+		u"tiktokfix.com"_q,
+		u"tnktok.com"_q,
+		u"tiktokez.com"_q,
+		u"kktiktok.com"_q,
+	};
+	ayu.addChooseButton({
+		.id = u"ayu/tiktokProxyIncoming"_q,
+		.title = tr::ayu_TikTokProxyIncoming(),
+		.boxTitle = tr::ayu_TikTokProxyIncoming(),
+		.initialSelection = static_cast<int>(settings->tiktokProxyIncoming()),
+		.options = proxyOptions,
+		.setter = [](int i) {
+			AyuSettings::getInstance().setTiktokProxyIncoming(
+				static_cast<TikTokProxyHost>(i));
+		},
+	});
+	ayu.addChooseButton({
+		.id = u"ayu/tiktokProxyOutgoing"_q,
+		.title = tr::ayu_TikTokProxyOutgoing(),
+		.boxTitle = tr::ayu_TikTokProxyOutgoing(),
+		.initialSelection = static_cast<int>(settings->tiktokProxyOutgoing()),
+		.options = proxyOptions,
+		.setter = [](int i) {
+			AyuSettings::getInstance().setTiktokProxyOutgoing(
+				static_cast<TikTokProxyHost>(i));
+		},
+	});
+
+	ayu.addSettingToggle({
+		.id = u"ayu/hideOutgoingProxyLinks"_q,
+		.title = tr::ayu_HideOutgoingProxyLinks(),
+		.getter = &AyuSettings::hideOutgoingProxyLinks,
+		.setter = &AyuSettings::setHideOutgoingProxyLinks,
+	});
 	ayu.addCollapsibleToggle({
 		.id = u"ayu/confirmations"_q,
 		.title = tr::ayu_ConfirmationsTitle(),

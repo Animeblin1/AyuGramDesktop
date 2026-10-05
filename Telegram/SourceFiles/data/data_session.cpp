@@ -4761,6 +4761,7 @@ void Session::webpageApplyFields(
 	if (changed) {
 		notifyWebPageUpdateDelayed(page);
 	}
+	_session->api().requestProxiedIncomingWebPage(page);
 }
 
 not_null<GameData*> Session::game(GameId id) {

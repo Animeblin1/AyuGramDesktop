@@ -172,7 +172,7 @@ void WebpageResolver::request(const QString &link, bool force) {
 	_requestId = _api.request(
 		MTPmessages_GetWebPagePreview(
 			MTP_flags(0),
-			MTP_string(getBetterLinkPreview(link)),
+			MTP_string(getBetterLinkPreview(link, AyuSettings::getInstance().tiktokProxyOutgoing())),
 			MTPVector<MTPMessageEntity>()
 	)).done([=](
 			const MTPmessages_WebPagePreview &result,
@@ -247,7 +247,7 @@ WebpageProcessor::WebpageProcessor(
 		if (_data) {
 			_draft.id = _data->id;
 			_draft.url = _data->url;
-			_draft.previewChanged = (getBetterLinkPreview(link) != link);
+			_draft.previewChanged = (getBetterLinkPreview(link, AyuSettings::getInstance().tiktokProxyOutgoing()) != link);
 			ApplyLargeMediaForVideo(_draft, _data);
 			updateFromData();
 		} else {
@@ -412,7 +412,7 @@ void WebpageProcessor::checkPreview() {
 		_data = page;
 		_draft.id = _data->id;
 		_draft.url = _data->url;
-		_draft.previewChanged = (getBetterLinkPreview(chosen) != chosen);
+		_draft.previewChanged = (getBetterLinkPreview(chosen, AyuSettings::getInstance().tiktokProxyOutgoing()) != chosen);
 		ApplyLargeMediaForVideo(_draft, _data);
 	} else {
 		_data = nullptr;

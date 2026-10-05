@@ -7,6 +7,7 @@
 #pragma once
 
 #include "api/api_common.h"
+#include "ayu/ayu_settings.h"
 #include "ayu/data/entities.h"
 #include "ayu/utils/rc_manager.h"
 #include "core/application.h"
@@ -122,7 +123,11 @@ bool prependPseudoReply(
 
 void getRegistrationDate(not_null<PeerData*> peer, Fn<void(TextWithEntities)> callback);
 
-QString getBetterLinkPreview(const QString &url);
+QString getBetterLinkPreview(
+	const QString &url,
+	TikTokProxyHost tiktokProxy = TikTokProxyHost::TikTokFix);
+
+void processOutgoingTikTokLinks(TextWithEntities &text, bool hide);
 
 void applyGhostScheduling(
 	not_null<Main::Session*> session,
