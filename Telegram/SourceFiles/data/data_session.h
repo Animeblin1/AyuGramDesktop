@@ -764,6 +764,9 @@ public:
 	not_null<WebPageData*> processWebpage(const MTPWebPage &data);
 	not_null<WebPageData*> processWebpage(const MTPDwebPage &data);
 	not_null<WebPageData*> processWebpage(const MTPDwebPagePending &data);
+	void webpageApplyFields(
+		not_null<WebPageData*> page,
+		const MTPDwebPage &data);
 	[[nodiscard]] not_null<WebPageData*> webpage(
 		WebPageId id,
 		const QString &siteName,
@@ -1129,9 +1132,6 @@ private:
 		const ImageLocation &thumbnailLocation,
 		const ImageLocation &videoThumbnailLocation);
 
-	void webpageApplyFields(
-		not_null<WebPageData*> page,
-		const MTPDwebPage &data);
 	void webpageApplyFields(
 		not_null<WebPageData*> page,
 		WebPageType type,
