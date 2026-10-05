@@ -4,12 +4,11 @@
 
 [ English  |   [Русский](README-RU.md) ]
 
-This maintenance fork provides current AyuGram builds while upstream releases
-are paused. It adds no fork-specific features or personal branding, preserves
-upstream attribution, and offers maintenance changes back to the main project.
-These builds are not official upstream releases.
+This maintenance fork builds on AyuGram's releases and adds the fixes listed in
+the [changelog](CHANGELOG.md). It adds no fork-specific features or personal
+branding, preserves upstream attribution, and offers maintenance changes back
+to the main project. These builds are not official upstream releases.
 
-Version 7.2.5 builds on [PR #460](https://github.com/AyuGram/AyuGramDesktop/pull/460).
 Release artifacts are built from the tagged source by GitHub Actions with
 automatic updates disabled. See [release details](docs/releasing.md).
 
