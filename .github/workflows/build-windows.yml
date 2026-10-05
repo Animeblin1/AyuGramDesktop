@@ -1,0 +1,231 @@
+name: Build Windows x64
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to build, for example codex/ayu-7.2.9
+        required: true
+        default: codex/ayu-7.2.9
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: build-windows-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows x64 Release
+    runs-on: windows-latest
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      actions: write
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TBUILD: ${{ github.workspace }}\TBuild
+      SRC: ${{ github.workspace }}\TBuild\AyuGramDesktop
+      CCACHE_DIR: ${{ github.workspace }}\TBuild\ccache
+      CCACHE_DEPEND: 'true'
+      CCACHE_MAXSIZE: 3G
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: pch_defines,time_macros
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          submodules: recursive
+          path: TBuild/AyuGramDesktop
+          persist-credentials: false
+      - name: Read toolchain, version, sha and cache key
+        id: toolchain
+        shell: bash
+        run: |
+          sdk=$(sed -n 's/.*\*\*\([^*]*\)\*\* SDK version.*/\1/p' "$SRC/docs/building-win.md" | head -1)
+          test -n "$sdk"
+          version=$(awk '$1 == "AppVersionStr" { print $2 }' "$SRC/Telegram/build/version")
+          test -n "$version"
+          sha=$(git -C "$SRC" rev-parse HEAD)
+          key=$( { sha256sum "$SRC/Telegram/build/prepare/prepare.py"; printf '%s\n%s\n' "$sdk" "$TBUILD"; } | sha256sum | cut -d' ' -f1)
+          echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+      - name: Install Visual Studio ATL component
+        run: |
+          $installer = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
+          $vswhere = Join-Path $installer 'vswhere.exe'
+          $setup = Join-Path $installer 'setup.exe'
+          $toolsComponent = 'Microsoft.VisualStudio.Component.VC.14.44.17.14.x86.x64'
+          $atlComponent = 'Microsoft.VisualStudio.Component.VC.14.44.17.14.ATL'
+          $path = @(& $vswhere -latest -products '*' -requires $toolsComponent -property installationPath)[0]
+          if (-not $path) { throw "No Visual Studio instance provides $toolsComponent." }
+          $toolset = Get-ChildItem (Join-Path $path 'VC\Tools\MSVC') -Directory |
+            Where-Object { $_.Name -like '14.44.*' } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          $header = Join-Path $toolset.FullName 'atlmfc\include\atlbase.h'
+          if (-not (Test-Path $header)) {
+            $process = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
+              'modify', '--installPath', "`"$path`"", '--add', $atlComponent,
+              '--quiet', '--norestart', '--nocache')
+            if ($process.ExitCode -notin @(0, 3010)) { exit $process.ExitCode }
+          }
+          if (-not (Test-Path $header)) { throw "ATL was not installed at $header." }
+      - name: Native Tools Command Prompt
+        uses: Eden-CI/msvc-dev-cmd@1bd71f95d6f3d1b2b3395b335cc63bcdc90cf223
+        with:
+          arch: x64
+          sdk: ${{ steps.toolchain.outputs.sdk }}
+          toolset: '14.44'
+      - name: Install the compiler cache
+        run: |
+          choco install ccache --version=4.14.0 --no-progress -y
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ccache --version
+      - name: Restore ThirdParty cache
+        id: third-party-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: windows-x64-third-party-${{ steps.toolchain.outputs.key }}
+          restore-keys: windows-x64-third-party-
+      - name: Restore libraries cache
+        id: libraries-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.TBUILD }}\Libraries\win64
+          key: windows-x64-release-libraries-${{ steps.toolchain.outputs.key }}
+          restore-keys: windows-x64-release-libraries-
+      - name: Prepare libraries
+        shell: cmd
+        env:
+          CCACHE_DISABLE: '1'
+        run: call %SRC%\Telegram\build\prepare\win.bat silent qt-release-only
+      - name: Strip unused library files
+        shell: bash
+        run: |
+          find "$TBUILD/Libraries/win64" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+          df -h
+      - name: Save ThirdParty cache
+        if: steps.third-party-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: ${{ steps.third-party-cache.outputs.cache-primary-key }}
+      - name: Save libraries cache
+        if: steps.libraries-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.TBUILD }}\Libraries\win64
+          key: ${{ steps.libraries-cache.outputs.cache-primary-key }}
+      - name: Drop superseded dependency caches
+        continue-on-error: true
+        shell: bash
+        env:
+          KEEP: |
+            ${{ steps.third-party-cache.outputs.cache-primary-key }}
+            ${{ steps.libraries-cache.outputs.cache-primary-key }}
+          PREFIXES: 'windows-x64-third-party- windows-x64-release-libraries-'
+        run: |
+          for prefix in $PREFIXES; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |
+              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
+          done
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.TBUILD }}\ccache
+          key: ccache-windows-x64-release-${{ steps.toolchain.outputs.sha }}
+          restore-keys: ccache-windows-x64-release-
+      - name: Configure Release
+        shell: cmd
+        env:
+          API_ID: ${{ vars.TDESKTOP_API_ID }}
+          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          ccache --zero-stats
+          echo NUMBER_OF_PROCESSORS=%NUMBER_OF_PROCESSORS%
+          cd /d %SRC%\Telegram
+          call configure.bat -G "Ninja Multi-Config" ^
+            -D CMAKE_CONFIGURATION_TYPES=Release ^
+            -D CMAKE_EXPORT_COMPILE_COMMANDS=ON ^
+            "-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=" ^
+            -D CMAKE_C_COMPILER_LAUNCHER=ccache ^
+            -D CMAKE_CXX_COMPILER_LAUNCHER=ccache ^
+            -D "TDESKTOP_API_ID=%API_ID%" ^
+            -D "TDESKTOP_API_HASH=%API_HASH%" ^
+            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
+            -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+      - name: Build AyuGram
+        shell: cmd
+        run: cmake --build %SRC%\out --config Release --parallel --target Telegram
+      - name: Build statistics
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          ccache --show-stats -v || true
+          df -h || true
+      - name: Drop superseded compiler caches
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        shell: bash
+        env:
+          KEEP: |
+            ${{ steps.compiler-cache.outputs.cache-primary-key }}
+          PREFIXES: ccache-windows-x64-release-
+        run: |
+          for prefix in $PREFIXES; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |
+              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
+          done
+      - name: Save compiler cache
+        if: ${{ !cancelled() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.TBUILD }}\ccache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Package Windows artifacts
+        env:
+          VERSION: ${{ steps.toolchain.outputs.version }}
+        run: |
+          $out = Join-Path $env:SRC 'out\Release'
+          $binary = Join-Path $out 'AyuGram.exe'
+          if (-not (Test-Path $binary)) { throw 'AyuGram.exe was not built.' }
+          $d3d = Join-Path $out 'modules\x64\d3d\d3dcompiler_47.dll'
+          if (-not (Test-Path $d3d)) { throw 'D3D compiler module is missing.' }
+          choco install innosetup --version=6.7.1 --no-progress -y
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          & $iscc "/dMyAppVersion=$env:VERSION" "/dMyAppVersionZero=$env:VERSION" "/dMyAppVersionFull=$env:VERSION" "/dReleasePath=$out" '/dMyBuildTarget=win64' '/dAyuGramUnsigned=1' '/dAyuGramNoUpdater=1' (Join-Path $env:SRC 'Telegram\build\setup.iss')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $setup = Join-Path $out "ayusetup-x64.$env:VERSION.exe"
+          if (-not (Test-Path $setup)) { throw 'Installer was not created.' }
+          $artifacts = Join-Path $env:SRC 'artifacts'
+          New-Item -ItemType Directory -Force $artifacts | Out-Null
+          Copy-Item $setup (Join-Path $artifacts 'AyuGram.exe')
+          $portable = Join-Path $env:RUNNER_TEMP 'AyuGram'
+          New-Item -ItemType Directory -Force (Join-Path $portable 'TelegramForcePortable') | Out-Null
+          New-Item -ItemType Directory -Force (Join-Path $portable 'modules\x64\d3d') | Out-Null
+          Copy-Item $binary (Join-Path $portable 'AyuGram.exe')
+          Copy-Item $d3d (Join-Path $portable 'modules\x64\d3d\d3dcompiler_47.dll')
+          & 7z a -mx9 (Join-Path $artifacts 'AyuGram.zip') $portable
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 7z t (Join-Path $artifacts 'AyuGram.zip')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-x64
+          path: |
+            ${{ env.SRC }}\artifacts\AyuGram.exe
+            ${{ env.SRC }}\artifacts\AyuGram.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
