@@ -1,5 +1,12 @@
 # Changelog
 
+## 7.2.9-3 - 2026-10-05
+
+- Strip local symbols from the macOS executable. The release step removed only
+  debugging entries and left about two million local symbols, so the
+  executable weighed 1.75 GB; it is now about 0.6 GB, and the disk image
+  shrinks with it.
+
 ## 7.2.9-2 - 2026-10-05
 
 - Based the fork on AyuGram 7.2.9 instead of its own merge of Telegram

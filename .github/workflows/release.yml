@@ -381,7 +381,7 @@ jobs:
           icon_name=$(plutil -extract CFBundleIconFile raw -o - "$app/Contents/Info.plist")
           test -s "$app/Contents/Resources/$icon_name"
           test ! -e "$app/Contents/Frameworks/Updater"
-          /usr/bin/strip -S "$app/Contents/MacOS/AyuGram"
+          /usr/bin/strip -x "$app/Contents/MacOS/AyuGram"
           codesign --force --deep --sign - "$app"
           codesign --verify --deep --strict --verbose=2 "$app"
           codesign -dv --verbose=4 "$app"
