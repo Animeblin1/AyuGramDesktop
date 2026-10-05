@@ -4761,7 +4761,40 @@ void Session::webpageApplyFields(
 	if (changed) {
 		notifyWebPageUpdateDelayed(page);
 	}
-	_session->api().requestProxiedIncomingWebPage(page);
+	const auto requestProxiedIncomingWebPage =
+		[=](not_null<WebPageData*> page) {
+			const auto &settings = AyuSettings::getInstance();
+			if (!settings.improveLinkPreviews()
+				|| page->failed
+				|| page->pendingTill) {
+				return;
+			}
+			const auto proxied = getBetterLinkPreview(
+				page->url,
+				settings.tiktokProxyIncoming());
+			if (proxied == page->url) {
+				return;
+			}
+			_session->api().request(MTPmessages_GetWebPagePreview(
+				MTP_flags(0),
+				MTP_string(proxied),
+				MTPVector<MTPMessageEntity>()
+			)).done([=](const MTPmessages_WebPagePreview &result) {
+				const auto &data = result.data();
+				_session->data().processUsers(data.vusers());
+				_session->data().processChats(data.vchats());
+				data.vmedia().match([=](
+						const MTPDmessageMediaWebPage &media) {
+					media.vwebpage().match([](const MTPDwebPageEmpty &) {
+					}, [&](const MTPDwebPage &webpage) {
+						webpageApplyFields(page, webpage);
+					}, [](const auto &) {
+					});
+				}, [](const auto &) {
+				});
+			}).send();
+		};
+	requestProxiedIncomingWebPage(page);
 }
 
 not_null<GameData*> Session::game(GameId id) {

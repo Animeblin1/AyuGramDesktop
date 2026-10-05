@@ -2720,41 +2720,6 @@ void ApiWrap::clearWebPageRequests() {
 	_webPagesTimer.cancel();
 }
 
-void ApiWrap::requestProxiedIncomingWebPage(not_null<WebPageData*> page) {
-	const auto &settings = AyuSettings::getInstance();
-	if (!settings.improveLinkPreviews() || page->failed || page->pendingTill) {
-		return;
-	}
-	const auto proxied = getBetterLinkPreview(
-		page->url,
-		settings.tiktokProxyIncoming());
-	if (proxied == page->url) {
-		return;
-	}
-	if (!_ayuProxiedWebPages.emplace(page->id).second) {
-		return;
-	}
-	request(MTPmessages_GetWebPagePreview(
-		MTP_flags(0),
-		MTP_string(proxied),
-		MTPVector<MTPMessageEntity>()
-	)).done([=](const MTPmessages_WebPagePreview &result) {
-		const auto &data = result.data();
-		_session->data().processUsers(data.vusers());
-		_session->data().processChats(data.vchats());
-		data.vmedia().match([=](const MTPDmessageMediaWebPage &media) {
-			media.vwebpage().match([](const MTPDwebPageEmpty &) {
-			}, [&](const MTPDwebPage &webpage) {
-				_session->data().webpageApplyFields(
-					page,
-					webpage);
-			}, [](const auto &) {
-			});
-		}, [](const auto &) {
-		});
-	}).send();
-}
-
 void ApiWrap::resolveWebPages() {
 	auto ids = QVector<MTPInputMessage>(); // temp_req_id = -1
 	using IndexAndMessageIds = QPair<int32, QVector<MTPInputMessage>>;
