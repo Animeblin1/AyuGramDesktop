@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 7.2.9-2 - 2026-10-05
 
 - Based the fork on AyuGram 7.2.9 instead of its own merge of Telegram
   Desktop 7.2.9. This brings AyuGram's rework of view-once media, its crash
@@ -11,6 +11,8 @@
   not have yet, and two parts of Telegram Desktop 7.2.9 that AyuGram's merge
   dropped: the guard against rebuilding a chat badge on selection, and the
   reply handling of a send that ghost mode schedules.
+- Publish a new build of an already released version under a revision tag,
+  such as this `v7.2.9-2`, while the application keeps the Telegram version.
 
 ## 7.2.9 - 2026-09-17
 

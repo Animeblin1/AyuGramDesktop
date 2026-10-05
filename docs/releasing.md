@@ -18,9 +18,16 @@ expensive jobs, then builds universal macOS and Windows x64 packages plus the
 full recursive source archive. Each macOS architecture builds in its own job
 because one cold build of both exceeds the six-hour job limit. The workflow
 creates the tag and public GitHub Release only after every build and package
-check succeeds. A version that is already tagged still builds; only the
+check succeeds. A release that is already tagged still builds; only the
 publishing step is skipped, so the pipeline can be exercised without
 republishing and a release that failed after tagging can be retried.
+
+A new build of a version that is already released, such as the move from the
+fork's own merge of 7.2.9 to AyuGram's release of it, takes the `revision`
+input: `-f revision=2` publishes `v7.2.9-2` and names the source archive after
+it. The application itself still reports 7.2.9, because its version names the
+Telegram Desktop release it is built from, and the workflow accepts a revision
+only for a version that already has its tag.
 
 Both platform jobs report into the log and the run summary: time per CMake
 target and the slowest translation units from `.ninja_log`, compiler cache
@@ -51,7 +58,8 @@ compilers do not fit in the runner's memory.
    starts.
 4. Dispatch the release **from the default branch**, naming the branch to
    build:
-   `gh workflow run Release --ref dev -f ref=codex/ayu-<version>`.
+   `gh workflow run Release --ref dev -f ref=codex/ayu-<version>`, adding
+   `-f revision=<n>` when the version is already released.
 
 A rename sweep in an upstream release is worth a word of warning, because it
 conflicts nowhere: git keeps the AyuGram line that used the old name beside

@@ -6,6 +6,10 @@ on:
       ref:
         description: Release branch to build, for example codex/ayu-7.2.8
         required: true
+      revision:
+        description: Rebuild number of an already released version, for example 2 publishes v7.2.9-2
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -22,6 +26,7 @@ jobs:
     outputs:
       sha: ${{ steps.head.outputs.sha }}
       version: ${{ steps.head.outputs.version }}
+      release: ${{ steps.head.outputs.release }}
       publish: ${{ steps.head.outputs.publish }}
     steps:
       - name: Require the default branch
@@ -49,6 +54,7 @@ jobs:
         id: head
         env:
           REF: ${{ inputs.ref }}
+          REVISION: ${{ inputs.revision }}
         run: |
           version=$(awk '$1 == "AppVersionStr" { print $2 }' Telegram/build/version)
           test "$REF" = "codex/ayu-$version"
@@ -56,15 +62,24 @@ jobs:
           test "$(awk '$1 == "BetaChannel" { print $2 }' Telegram/build/version)" = 0
           test "$(awk '$1 == "AlphaVersion" { print $2 }' Telegram/build/version)" = 0
           test ! -d Telegram/Resources/ayu/languages
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          # An already tagged version still builds, so the pipeline can be
+          release=$version
+          if [ -n "$REVISION" ]; then
+            [[ "$REVISION" =~ ^[1-9][0-9]*$ && "$REVISION" -ge 2 ]]
+            test -n "$(git ls-remote --tags origin "refs/tags/v$version")"
+            release="$version-$REVISION"
+          fi
+          {
+            echo "version=$version"
+            echo "release=$release"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+          # An already tagged release still builds, so the pipeline can be
           # exercised and a failed release retried; only publishing is skipped.
-          if [ -z "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
+          if [ -z "$(git ls-remote --tags origin "refs/tags/v$release")" ]; then
             echo 'publish=true' >> "$GITHUB_OUTPUT"
           else
             echo 'publish=false' >> "$GITHUB_OUTPUT"
-            echo "Tag \`v$version\` exists, so this run builds without publishing." >> "$GITHUB_STEP_SUMMARY"
+            echo "Tag \`v$release\` exists, so this run builds without publishing." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   source:
@@ -73,7 +88,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      VERSION: ${{ needs.validate.outputs.version }}
+      RELEASE: ${{ needs.validate.outputs.release }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -83,7 +98,7 @@ jobs:
           persist-credentials: false
       - name: Archive source and pinned submodules
         run: |
-          root="AyuGramDesktop-$VERSION"
+          root="AyuGramDesktop-$RELEASE"
           archive="$RUNNER_TEMP/$root-full.tar"
           git archive --format=tar --prefix="$root/" HEAD -o "$archive"
           while read -r revision path rest; do
@@ -95,14 +110,14 @@ jobs:
           done < <(git submodule status --recursive)
           gzip -9 -n "$archive"
           mkdir artifacts
-          mv "$archive.gz" "artifacts/AyuGramDesktop-$VERSION-full.tar.gz"
-          tar -tzf "artifacts/AyuGramDesktop-$VERSION-full.tar.gz" > "$RUNNER_TEMP/source-files.txt"
+          mv "$archive.gz" "artifacts/AyuGramDesktop-$RELEASE-full.tar.gz"
+          tar -tzf "artifacts/AyuGramDesktop-$RELEASE-full.tar.gz" > "$RUNNER_TEMP/source-files.txt"
           grep -qx "$root/Telegram/build/version" "$RUNNER_TEMP/source-files.txt"
           ! grep -q "$root/Telegram/Resources/ayu/languages/" "$RUNNER_TEMP/source-files.txt"
       - uses: actions/upload-artifact@v7
         with:
           name: release-source
-          path: artifacts/AyuGramDesktop-${{ needs.validate.outputs.version }}-full.tar.gz
+          path: artifacts/AyuGramDesktop-${{ needs.validate.outputs.release }}-full.tar.gz
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
@@ -685,6 +700,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.validate.outputs.version }}
+      RELEASE: ${{ needs.validate.outputs.release }}
       SHA: ${{ needs.validate.outputs.sha }}
     steps:
       - uses: actions/download-artifact@v8
@@ -695,7 +711,7 @@ jobs:
       - name: Verify files and checksums
         run: |
           cd release
-          expected=(AyuGram.dmg AyuGram.exe AyuGram.zip "AyuGramDesktop-$VERSION-full.tar.gz")
+          expected=(AyuGram.dmg AyuGram.exe AyuGram.zip "AyuGramDesktop-$RELEASE-full.tar.gz")
           test "$(find . -maxdepth 1 -type f | wc -l)" -eq 4
           for file in "${expected[@]}"; do test -s "$file"; done
           sha256sum "${expected[@]}" > SHA256SUMS.txt
@@ -704,19 +720,20 @@ jobs:
         run: |
           cat > "$RUNNER_TEMP/release-notes.md" <<NOTES
           Technical maintenance build of AyuGram $VERSION from commit \`$SHA\`.
+          Changes are listed in [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/v$RELEASE/CHANGELOG.md).
 
           - \`AyuGram.dmg\`: universal macOS application (Apple Silicon and Intel)
           - \`AyuGram.exe\`: Windows x64 installer
           - \`AyuGram.zip\`: Windows x64 portable application
-          - \`AyuGramDesktop-$VERSION-full.tar.gz\`: source with pinned submodules
+          - \`AyuGramDesktop-$RELEASE-full.tar.gz\`: source with pinned submodules
 
           Automatic updates are disabled. The macOS application has an ad-hoc
           integrity signature and is not notarized. Windows binaries are not
           Authenticode-signed. Verify downloads with \`SHA256SUMS.txt\`.
           NOTES
-          gh release create "v$VERSION" release/* \
+          gh release create "v$RELEASE" release/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$SHA" \
-            --title "AyuGram $VERSION" \
+            --title "AyuGram $RELEASE" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --latest
