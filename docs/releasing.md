@@ -32,10 +32,15 @@ compilers do not fit in the runner's memory.
 
 ## Releasing a new Telegram version
 
-1. Branch from the default branch and merge the upstream tag:
-   `git switch -c codex/ayu-<version> origin/dev --no-track`. Resolve the
-   conflicts in the AyuGram-patched sources. If upstream moved the `lib_ui` or
-   `lib_tl` pins, merge and push those repositories first.
+1. Branch from the default branch:
+   `git switch -c codex/ayu-<version> origin/dev --no-track`. If AyuGram has
+   released the same Telegram version, merge its `v<version>` tag and take
+   their side in the application sources, except for this fork's changes they
+   have not taken yet. Otherwise merge the Telegram Desktop tag and resolve the
+   AyuGram-patched sources by hand. `lib_ui`, `lib_tl` and `codegen` come from
+   AyuGram; a Telegram Desktop tag that moves one of those pins before AyuGram
+   does needs the submodule merged in a fork, and `.gitmodules` points at the
+   fork until AyuGram has the commit.
 2. Set the version in `Telegram/build/version`; the workflow reads it and
    requires the branch to be named `codex/ayu-<version>`. Upstream bumps the
    number in `Telegram/SourceFiles/core/version.h` and both files under
@@ -54,6 +59,13 @@ the upstream lines that no longer define it, and the build is the first thing
 that says so. 7.2.9 renamed `ppos` to `innerPos` in the sticker box and moved
 `floorclamp` and `ceilclamp` out of `lib_ui` into `Ui::RowsInRange`; both sites
 were AyuGram's own.
+
+Merging AyuGram's tag has the same blind spot. Git keeps every line this side
+changed and AyuGram did not, with no conflict to point at it. Merging AyuGram
+7.2.9 carried over a dead `MessageFlag::NoForwards` alias and the view-once
+media routing that AyuGram had already replaced. Diff the result against their
+tag, `git diff <their tag> HEAD -- Telegram`, and make every remaining
+difference one the fork means to keep.
 
 Step 4 is not a convenience. A run reaches only the caches of its own ref and
 of the default branch, and the release branch is renamed every version, so a
@@ -77,9 +89,9 @@ the 2883 sources. 7.2.9 changed `prepare.py` again and moved four submodule
 pins, so its first run paid for the dependencies a second time. Read those
 paths in the upstream diff before promising anyone a fast release.
 
-Merging is the slow half now, and none of this speeds it up: the conflicts in
-AyuGram-patched sources and the separate `lib_ui` and `lib_tl` merges are hand
-work.
+Merging is the slow half, and none of this speeds it up. It is short when
+AyuGram has released the version first. When the fork goes ahead of them, the
+AyuGram-patched sources and any submodule merges are hand work.
 
 ## Caches
 
@@ -222,18 +234,17 @@ not perform one.
 
 ## Contributing upstream
 
-The Telegram 7.2.9 update builds on
-[AyuGramDesktop #460](https://github.com/AyuGram/AyuGramDesktop/pull/460).
-Preserve its authorship and merge ancestry. The earlier macOS workflow proposal
-[#427](https://github.com/AyuGram/AyuGramDesktop/pull/427) is related work.
+From AyuGram's 7.2.9 on, the fork builds on AyuGram's releases rather than on
+its own merges of Telegram Desktop. A change worth having upstream goes to
+AyuGram as a pull request of its own against `dev`, separate from any version
+merge, so that it can be reviewed and taken alone. Start it as a draft until
+the advertised platform checks pass. An open PR or a gap between releases is
+not evidence that upstream is abandoned.
 
-`lib_ui` and `lib_tl` still point to the development repositories containing
-the pinned commits. These are source dependencies, not application branding.
-Upstream integration needs the corresponding submodule changes accepted before
-the main repository pins them and restores the upstream URLs. Keep these URLs
-absolute: a contributor must be able to fork only the main repository and still
-clone its dependencies. Do not point at upstream before it contains the commits.
-
-Keep language fixes independently reviewable from the Telegram version merge.
-Start an integration PR as a draft until the advertised platform checks pass.
-An open PR or a gap between releases is not evidence that upstream is abandoned.
+`.gitmodules` points at AyuGram's `lib_ui`, `lib_tl` and `codegen`. Keep the
+URLs absolute: a contributor must be able to fork only the main repository and
+still clone its dependencies. Pin only a commit that sits on a branch of the
+repository the URL names. AyuGram rebases its patches in these repositories
+onto each new upstream and force-pushes them, so a pin taken from an older
+branch can end up on no branch at all. That is what happened to the `codegen`
+pin `8845d9d` at 7.2.9.

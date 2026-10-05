@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Based the fork on AyuGram 7.2.9 instead of its own merge of Telegram
+  Desktop 7.2.9. This brings AyuGram's rework of view-once media, its crash
+  fixes and stricter link handling, and window screenshot protection disabled
+  on macOS and Windows. `lib_ui`, `lib_tl` and `codegen` come from AyuGram's
+  repositories again.
+- Kept the language synchronization and macOS icon fixes, which AyuGram does
+  not have yet, and two parts of Telegram Desktop 7.2.9 that AyuGram's merge
+  dropped: the guard against rebuilding a chat badge on selection, and the
+  reply handling of a send that ghost mode schedules.
+
+## 7.2.9 - 2026-09-17
+
+- Updated the application base to Telegram Desktop 7.2.9.
 - Build and publish a release from a single workflow, dispatched on the default
   branch so it writes the caches every release branch can read. A version is
   now compiled once instead of once to warm the caches and again to publish.
