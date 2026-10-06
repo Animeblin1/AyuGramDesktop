@@ -639,16 +639,18 @@ HistoryItem::HistoryItem(
 						ayuSession->data().processChats(ayuData.vchats());
 						ayuData.vmedia().match([&](
 								const MTPDmessageMediaWebPage &ayuMedia) {
-							ayuMedia.vwebpage().match(
-								[](const MTPDwebPageEmpty &) {
-							}, [&](const MTPDwebPage &ayuWebpage) {
-								ayuItem->setMedia(MTP_messageMediaWebPage(
-									MTP_flags(0),
-									MTP_webPage(ayuWebpage)));
-								ayuSession->data().requestItemViewRefresh(
-									ayuItem);
-							}, [](const auto &) {
-							});
+							const auto ayuPage = ayuSession
+								->data()
+								.processWebpage(ayuMedia.vwebpage());
+							if (!ayuPage
+								|| ayuPage->pendingTill
+								|| ayuPage->failed
+								|| (!ayuPage->photo && !ayuPage->document)) {
+								return;
+							}
+							ayuItem->setMedia(ayuData.vmedia());
+							ayuSession->data().requestItemViewRefresh(
+								ayuItem);
 						}, [](const auto &) {
 						});
 					}).fail([=](const MTP::Error &, mtpRequestId) {
