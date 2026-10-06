@@ -606,6 +606,58 @@ HistoryItem::HistoryItem(
 			history->owner().histories().reportDelivery(this);
 		}
 	}
+
+	const auto &ayuSettings = AyuSettings::getInstance();
+	if (ayuSettings.improveLinkPreviews()
+		&& !out()
+		&& (!_media
+			|| !_media->webpage()
+			|| _media->webpage()->pendingTill
+			|| _media->webpage()->failed)) {
+		const auto ayuUrl = ayuFirstTikTokUrl(originalText().text);
+		if (!ayuUrl.isEmpty()) {
+			const auto ayuProxied = getBetterLinkPreview(
+				ayuUrl,
+				ayuSettings.tiktokProxyIncoming());
+			if (!ayuProxied.isEmpty() && ayuProxied != ayuUrl) {
+				static base::flat_set<FullMsgId> ayuInFlight;
+				const auto ayuId = fullId();
+				if (ayuInFlight.emplace(ayuId).second) {
+					const auto ayuSession = &history->session();
+					ayuSession->api().request(MTPmessages_GetWebPagePreview(
+						MTP_flags(0),
+						MTP_string(ayuProxied),
+						MTPVector<MTPMessageEntity>()
+					)).done([=](const MTPmessages_WebPagePreview &result) {
+						ayuInFlight.remove(ayuId);
+						const auto ayuItem = ayuSession->data().message(ayuId);
+						if (!ayuItem) {
+							return;
+						}
+						const auto &ayuData = result.data();
+						ayuSession->data().processUsers(ayuData.vusers());
+						ayuSession->data().processChats(ayuData.vchats());
+						ayuData.vmedia().match([&](
+								const MTPDmessageMediaWebPage &ayuMedia) {
+							ayuMedia.vwebpage().match(
+								[](const MTPDwebPageEmpty &) {
+							}, [&](const MTPDwebPage &ayuWebpage) {
+								ayuItem->setMedia(MTP_messageMediaWebPage(
+									MTP_flags(0),
+									ayuWebpage));
+								ayuSession->data().requestItemViewRefresh(
+									ayuItem);
+							}, [](const auto &) {
+							});
+						}, [](const auto &) {
+						});
+					}).fail([=](const MTP::Error &, mtpRequestId) {
+						ayuInFlight.remove(ayuId);
+					}).send();
+				}
+			}
+		}
+	}
 }
 
 HistoryItem::HistoryItem(

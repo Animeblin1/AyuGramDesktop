@@ -1553,6 +1553,15 @@ void getRegistrationDate(not_null<PeerData*> peer, Fn<void(TextWithEntities)> ca
 	return u"tiktokfix.com"_q;
 }
 
+[[nodiscard]] QString tiktokModePrefix(TikTokProxyMode mode) {
+	switch (mode) {
+	case TikTokProxyMode::Captions: return u"a."_q;
+	case TikTokProxyMode::Hq: return u"hq."_q;
+	case TikTokProxyMode::Plain: break;
+	}
+	return QString();
+}
+
 QString getBetterLinkPreview(const QString &url, TikTokProxyHost tiktokProxy) {
 	const auto &settings = AyuSettings::getInstance();
 	if (!settings.improveLinkPreviews()) {
@@ -1569,8 +1578,15 @@ QString getBetterLinkPreview(const QString &url, TikTokProxyHost tiktokProxy) {
 	if (host == u"twitter.com"_q || host == u"x.com"_q) {
 		parsed.setHost(u"fixupx.com"_q);
 	} else if (host == u"tiktok.com"_q || host.endsWith(u".tiktok.com"_q)) {
-		host.replace(u"tiktok.com"_q, tiktokProxyDomain(tiktokProxy));
-		parsed.setHost(host);
+		if (tiktokProxy == TikTokProxyHost::Tnktok) {
+			// fxTikTok uses subdomains for modes, not source subdomains.
+			parsed.setHost(
+				tiktokModePrefix(settings.tiktokProxyMode())
+				+ tiktokProxyDomain(tiktokProxy));
+		} else {
+			host.replace(u"tiktok.com"_q, tiktokProxyDomain(tiktokProxy));
+			parsed.setHost(host);
+		}
 	} else if (host == u"reddit.com"_q || host == u"www.reddit.com"_q) {
 		parsed.setHost(u"vxreddit.com"_q);
 	} else if (host == u"instagram.com"_q || host == u"www.instagram.com"_q) {
@@ -1627,16 +1643,31 @@ void replaceTextRange(
 	text.entities = std::move(kept);
 }
 
+const auto TikTokUrlRegExp = QRegularExpression(
+	u"https?://(?:m\\.|vt\\.|vm\\.|www\\.)?tiktok\\.com/[^\\s\\)\\]>\"',]*"_q,
+	QRegularExpression::CaseInsensitiveOption);
+const auto TikTokTrailingPunct = u".,!?;:)]}"_q;
+
+QString ayuFirstTikTokUrl(const QString &text) {
+	auto it = TikTokUrlRegExp.globalMatch(text);
+	while (it.hasNext()) {
+		const auto match = it.next();
+		auto link = match.captured(0);
+		while (!link.isEmpty() && TikTokTrailingPunct.contains(link.back())) {
+			link.chop(1);
+		}
+		if (!link.isEmpty()) {
+			return link;
+		}
+	}
+	return QString();
+}
+
 void processOutgoingTikTokLinks(TextWithEntities &text, bool hide) {
 	const auto &settings = AyuSettings::getInstance();
 	if (!settings.improveLinkPreviews()) {
 		return;
 	}
-
-	static const auto kRegExp = QRegularExpression(
-		u"https?://(?:m\\.|vt\\.|vm\\.|www\\.)?tiktok\\.com/[^\\s\\)\\]>\"',]*"_q,
-		QRegularExpression::CaseInsensitiveOption);
-	static const auto kTrailing = u".,!?;:)]}"_q;
 
 	struct Link {
 		int start = 0;
@@ -1644,11 +1675,11 @@ void processOutgoingTikTokLinks(TextWithEntities &text, bool hide) {
 		QString proxied;
 	};
 	auto links = std::vector<Link>();
-	auto it = kRegExp.globalMatch(text.text);
+	auto it = TikTokUrlRegExp.globalMatch(text.text);
 	while (it.hasNext()) {
 		const auto match = it.next();
 		auto link = match.captured(0);
-		while (!link.isEmpty() && kTrailing.contains(link.back())) {
+		while (!link.isEmpty() && TikTokTrailingPunct.contains(link.back())) {
 			link.chop(1);
 		}
 		if (link.isEmpty()) {

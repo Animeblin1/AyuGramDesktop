@@ -124,7 +124,9 @@ void getRegistrationDate(not_null<PeerData*> peer, Fn<void(TextWithEntities)> ca
 
 QString getBetterLinkPreview(
 	const QString &url,
-	TikTokProxyHost tiktokProxy = TikTokProxyHost::TikTokFix);
+	TikTokProxyHost tiktokProxy = TikTokProxyHost::Tnktok);
+
+QString ayuFirstTikTokUrl(const QString &text);
 
 void processOutgoingTikTokLinks(TextWithEntities &text, bool hide);
 

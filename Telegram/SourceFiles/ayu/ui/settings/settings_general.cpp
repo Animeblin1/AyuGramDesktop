@@ -237,10 +237,15 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	});
 
 	const auto proxyOptions = std::vector<QString>{
-		u"tiktokfix.com"_q,
 		u"tnktok.com"_q,
+		u"tiktokfix.com"_q,
 		u"tiktokez.com"_q,
 		u"kktiktok.com"_q,
+	};
+	const auto proxyModeOptions = std::vector<QString>{
+		u"Plain"_q,
+		u"a - with caption"_q,
+		u"hq - high quality"_q,
 	};
 	ayu.addChooseButton({
 		.id = u"ayu/tiktokProxyIncoming"_q,
@@ -262,6 +267,17 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = [](int i) {
 			AyuSettings::getInstance().setTiktokProxyOutgoing(
 				static_cast<TikTokProxyHost>(i));
+		},
+	});
+	ayu.addChooseButton({
+		.id = u"ayu/tiktokProxyMode"_q,
+		.title = tr::ayu_TikTokProxyMode(),
+		.boxTitle = tr::ayu_TikTokProxyMode(),
+		.initialSelection = static_cast<int>(settings->tiktokProxyMode()),
+		.options = proxyModeOptions,
+		.setter = [](int i) {
+			AyuSettings::getInstance().setTiktokProxyMode(
+				static_cast<TikTokProxyMode>(i));
 		},
 	});
 

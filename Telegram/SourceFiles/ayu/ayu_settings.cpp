@@ -509,6 +509,7 @@ void AyuSettings::validate() {
 	validateEnum(_showAddFilterInContextMenu, defaults._showAddFilterInContextMenu);
 	validateEnum(_tiktokProxyIncoming, defaults._tiktokProxyIncoming, 3);
 	validateEnum(_tiktokProxyOutgoing, defaults._tiktokProxyOutgoing, 3);
+	validateEnum(_tiktokProxyMode, defaults._tiktokProxyMode, 2);
 
 	validateEnum(_translationProvider, defaults._translationProvider, 3);
 	if ((_translationProvider.current() == TranslationProvider::Native)
@@ -1056,6 +1057,12 @@ void AyuSettings::setTiktokProxyOutgoing(TikTokProxyHost val) {
 	save();
 }
 
+void AyuSettings::setTiktokProxyMode(TikTokProxyMode val) {
+	if (_tiktokProxyMode.current() == val) return;
+	_tiktokProxyMode = val;
+	save();
+}
+
 void AyuSettings::setHideOutgoingProxyLinks(bool val) {
 	if (_hideOutgoingProxyLinks.current() == val) return;
 	_hideOutgoingProxyLinks = val;
@@ -1183,6 +1190,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"improveLinkPreviews", s._improveLinkPreviews.current()},
 		{"tiktokProxyIncoming", s._tiktokProxyIncoming.current()},
 		{"tiktokProxyOutgoing", s._tiktokProxyOutgoing.current()},
+		{"tiktokProxyMode", s._tiktokProxyMode.current()},
 		{"hideOutgoingProxyLinks", s._hideOutgoingProxyLinks.current()},
 		{"crashReporting", s._crashReporting.current()},
 		{"avatarCorners", s._avatarCorners.current()},
@@ -1290,6 +1298,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._improveLinkPreviews = j.value("improveLinkPreviews", defaults._improveLinkPreviews.current());
 	s._tiktokProxyIncoming = j.value("tiktokProxyIncoming", defaults._tiktokProxyIncoming.current());
 	s._tiktokProxyOutgoing = j.value("tiktokProxyOutgoing", defaults._tiktokProxyOutgoing.current());
+	s._tiktokProxyMode = j.value("tiktokProxyMode", defaults._tiktokProxyMode.current());
 	s._hideOutgoingProxyLinks = j.value("hideOutgoingProxyLinks", defaults._hideOutgoingProxyLinks.current());
 	s._crashReporting = j.value("crashReporting", defaults._crashReporting.current());
 	s._avatarCorners = j.value("avatarCorners", defaults._avatarCorners.current());

@@ -9163,6 +9163,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_ImproveLinkPreviews" = "Improve Link Previews";
 "ayu_TikTokProxyIncoming" = "TikTok Proxy (Incoming Previews)";
 "ayu_TikTokProxyOutgoing" = "TikTok Proxy (Outgoing)";
+"ayu_TikTokProxyMode" = "fxTikTok Embed Mode";
 "ayu_HideOutgoingProxyLinks" = "Hide Proxy Links in Outgoing Messages";
 "ayu_ShowOnlyAddedEmojisAndStickers" = "Show Only Added Emojis & Stickers";
 "ayu_ContextCopyID" = "Copy ID";
