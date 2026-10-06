@@ -642,10 +642,14 @@ HistoryItem::HistoryItem(
 							const auto ayuPage = ayuSession
 								->data()
 								.processWebpage(ayuMedia.vwebpage());
-							if (!ayuPage
-								|| ayuPage->pendingTill
-								|| ayuPage->failed
-								|| (!ayuPage->photo && !ayuPage->document)) {
+							if (!ayuPage || ayuPage->failed) {
+								return;
+							}
+							const auto ayuDead = !ayuPage->pendingTill
+								&& !ayuPage->photo
+								&& !ayuPage->document
+								&& ayuPage->url.isEmpty();
+							if (ayuDead) {
 								return;
 							}
 							ayuItem->setMedia(ayuData.vmedia());
