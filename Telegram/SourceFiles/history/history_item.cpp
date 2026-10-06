@@ -644,7 +644,7 @@ HistoryItem::HistoryItem(
 							}, [&](const MTPDwebPage &ayuWebpage) {
 								ayuItem->setMedia(MTP_messageMediaWebPage(
 									MTP_flags(0),
-									ayuWebpage));
+									MTP_webPage(ayuWebpage)));
 								ayuSession->data().requestItemViewRefresh(
 									ayuItem);
 							}, [](const auto &) {
