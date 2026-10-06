@@ -190,7 +190,7 @@ void SendExistingMedia(
 		Fn<MTPInputMedia()> inputMedia,
 		Data::FileOrigin origin,
 		std::optional<MsgId> localMessageId) {
-	applyGhostScheduling(&message.action.history->session(), message.action.options);
+	applyGhostScheduling(message.action, message.textWithTags.text);
 
 	const auto history = message.action.history;
 	const auto peer = history->peer;
@@ -502,7 +502,7 @@ void SendMusicSelectionBatch(
 			.localItem = localItem,
 			.localId = newId,
 			.randomId = randomId,
-			.caption = std::move(itemCaption),
+			.caption = reverseLocalPremiumEmoji(itemCaption, history),
 		});
 	}
 
@@ -761,6 +761,14 @@ void SendMusicSelection(
 	if (items.empty()) {
 		return;
 	}
+
+	const auto clearReplyTo = prependPseudoReply(message);
+	if (clearReplyTo) {
+		message.action.replyTo.messageId = FullMsgId(
+			message.action.replyTo.messageId.peer,
+			message.action.replyTo.topicRootId);
+	}
+	applyGhostScheduling(message.action, message.textWithTags.text);
 
 	auto caption = TextWithEntities{
 		std::move(message.textWithTags.text),
@@ -1202,16 +1210,20 @@ struct ConfirmedLocalFile {
 	const auto peer = history->peer;
 
 	if (!isEditing
+		&& !welcomeTemplate
 		&& file->type != SendMediaType::Audio
 		&& file->type != SendMediaType::Round) {
 		const auto clearReplyTo = prependPseudoReply(
-			session, history, file->caption, file->to.replyTo);
+			session,
+			history,
+			file->caption,
+			file->to.replyTo);
 		if (clearReplyTo) {
 			file->to.replyTo.messageId = FullMsgId(
 				file->to.replyTo.messageId.peer,
 				file->to.replyTo.topicRootId);
 		}
-	} else if (!isEditing && file->to.replyTo) {
+	} else if (!isEditing && !welcomeTemplate && file->to.replyTo) {
 		if (const auto item = session->data().message(file->to.replyTo.messageId)) {
 			if (item->isDeleted()) {
 				file->to.replyTo.messageId = FullMsgId(

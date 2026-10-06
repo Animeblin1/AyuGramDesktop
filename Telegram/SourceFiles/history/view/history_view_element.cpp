@@ -1631,13 +1631,13 @@ bool Element::hidesBottomInfo() const {
 }
 
 int Element::skipBlockWidth() const {
+	if (hidesBottomInfo()) {
+		return 0;
+	}
 	if (AyuFeatures::MessageShot::ignoreRender(AyuFeatures::MessageShot::RenderPart::Date)) {
 		return st::msgDateDelta.x();
 	}
 
-	if (hidesBottomInfo()) {
-		return 0;
-	}
 	return st::msgDateSpace + infoWidth() - st::msgDateDelta.x();
 }
 
