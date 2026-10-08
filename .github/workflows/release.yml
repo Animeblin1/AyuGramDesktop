@@ -506,24 +506,97 @@ jobs:
           path: ${{ github.workspace }}/ccache
           key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
       - name: Verify and package Linux artifacts
+        env:
+          RELEASE: ${{ needs.validate.outputs.release }}
         run: |
-          binary=$(find AyuGramDesktop/out -maxdepth 2 -type f -name AyuGram | head -n 1)
+          src=AyuGramDesktop
+          binary=$(find "$src/out" -maxdepth 2 -type f -name AyuGram | head -n 1)
           test -n "$binary"
           test -s "$binary"
           info=$(file "$binary")
           echo "$info"
           grep -q 'ELF 64-bit' <<< "$info"
           grep -q 'x86-64' <<< "$info"
-          test -z "$(find AyuGramDesktop/out -maxdepth 2 -type f -name Updater)"
+          test -z "$(find "$src/out" -maxdepth 2 -type f -name Updater)"
           strip "$binary"
-          mkdir -p artifacts release/AyuGram
-          install -m 0755 "$binary" release/AyuGram/AyuGram
-          tar -C release --owner=0 --group=0 -cJf artifacts/AyuGram.tar.xz AyuGram
+
+          # One staging tree laid out like the installed system; the portable
+          # archive, the deb and the AppImage are all cut from it.
+          stage="$RUNNER_TEMP/stage"
+          rm -rf "$stage"
+          install -Dm755 "$binary" "$stage/usr/bin/AyuGram"
+          install -Dm644 "$src/lib/xdg/com.ayugram.desktop.desktop" "$stage/usr/share/applications/com.ayugram.desktop.desktop"
+          install -Dm644 "$src/lib/xdg/com.ayugram.desktop.metainfo.xml" "$stage/usr/share/metainfo/com.ayugram.desktop.metainfo.xml"
+          sed 's|@CMAKE_INSTALL_FULL_BINDIR@|/usr/bin|' "$src/lib/xdg/com.ayugram.desktop.service" > "$RUNNER_TEMP/dbus.service"
+          install -Dm644 "$RUNNER_TEMP/dbus.service" "$stage/usr/share/dbus-1/services/com.ayugram.desktop.service"
+          for size in 16 32 48 64 128 256 512; do
+            install -Dm644 "$src/Telegram/Resources/art/icon$size.png" "$stage/usr/share/icons/hicolor/${size}x${size}/apps/com.ayugram.desktop.png"
+          done
+          mkdir -p artifacts
+
+          # Portable archive: the binary plus the desktop integration files.
+          portable="$RUNNER_TEMP/portable"
+          rm -rf "$portable"
+          mkdir -p "$portable/AyuGram"
+          cp -a "$stage/usr/bin/AyuGram" "$portable/AyuGram/AyuGram"
+          cp -a "$stage/usr/share" "$portable/AyuGram/share"
+          tar -C "$portable" --owner=0 --group=0 -cJf artifacts/AyuGram.tar.xz AyuGram
           tar -tJf artifacts/AyuGram.tar.xz | grep -qx 'AyuGram/AyuGram'
+          tar -tJf artifacts/AyuGram.tar.xz | grep -qx 'AyuGram/share/applications/com.ayugram.desktop.desktop'
+
+          # Debian and Ubuntu package. The binary links its libraries statically
+          # or loads them on demand, so only libc is a hard dependency.
+          deb="$RUNNER_TEMP/deb"
+          rm -rf "$deb"
+          mkdir -p "$deb"
+          cp -a "$stage/." "$deb/"
+          mkdir -p "$deb/DEBIAN"
+          find "$deb" -type d -exec chmod 755 {} +
+          installed_size=$(du -sk "$stage" | cut -f1)
+          cat > "$deb/DEBIAN/control" <<CONTROL
+          Package: ayugram-desktop
+          Version: $RELEASE
+          Architecture: amd64
+          Maintainer: AyuGram maintenance build <noreply@users.noreply.github.com>
+          Installed-Size: $installed_size
+          Section: net
+          Priority: optional
+          Depends: libc6 (>= 2.28)
+          Conflicts: ayugram-desktop-bin
+          Homepage: https://github.com/$GITHUB_REPOSITORY
+          Description: AyuGram Desktop, technical maintenance build
+           Telegram client with ghost mode and message history. This is not an
+           official upstream release and automatic updates are disabled.
+          CONTROL
+          dpkg-deb --root-owner-group --build "$deb" "artifacts/ayugram-desktop_${RELEASE}_amd64.deb"
+          dpkg-deb --info "artifacts/ayugram-desktop_${RELEASE}_amd64.deb"
+          dpkg-deb --contents "artifacts/ayugram-desktop_${RELEASE}_amd64.deb" | grep -q ' ./usr/bin/AyuGram$'
+
+          # AppImage. No D-Bus activation and no quit action: neither works
+          # from inside an AppImage.
+          appdir="$RUNNER_TEMP/AyuGram.AppDir"
+          rm -rf "$appdir"
+          mkdir -p "$appdir"
+          cp -a "$stage/usr" "$appdir/usr"
+          rm -f "$appdir/usr/share/dbus-1/services/com.ayugram.desktop.service"
+          sed -e '/^DBusActivatable=/d' -e '/^TryExec=/d' -e '/^Actions=/d' \
+            -e 's|^Exec=env DESKTOPINTEGRATION=1 AyuGram|Exec=AyuGram|' \
+            -e '/^\[Desktop Action quit\]/Q' \
+            "$src/lib/xdg/com.ayugram.desktop.desktop" > "$appdir/com.ayugram.desktop.desktop"
+          cp "$src/Telegram/Resources/art/icon256.png" "$appdir/com.ayugram.desktop.png"
+          ln -s usr/bin/AyuGram "$appdir/AppRun"
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          ARCH=x86_64 "$RUNNER_TEMP/appimagetool" --appimage-extract-and-run --no-appstream "$appdir" artifacts/AyuGram-x86_64.AppImage
+          chmod +x artifacts/AyuGram-x86_64.AppImage
+          mkdir "$RUNNER_TEMP/appimage-check"
+          (cd "$RUNNER_TEMP/appimage-check" && "$GITHUB_WORKSPACE/artifacts/AyuGram-x86_64.AppImage" --appimage-extract > /dev/null)
+          test -x "$RUNNER_TEMP/appimage-check/squashfs-root/usr/bin/AyuGram"
+          ls -l artifacts
       - uses: actions/upload-artifact@v7
         with:
           name: release-linux
-          path: artifacts/AyuGram.tar.xz
+          path: artifacts/*
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
@@ -547,11 +620,41 @@ jobs:
           pattern: release-*
           path: release
           merge-multiple: true
+      - name: Generate PKGBUILD
+        run: |
+          sum=$(sha256sum release/AyuGram.tar.xz | cut -d' ' -f1)
+          rel=1
+          if [ "$RELEASE" != "$VERSION" ]; then rel="${RELEASE#"$VERSION"-}"; fi
+          cat > release/PKGBUILD <<'PKGBUILD'
+          # Generated by the release workflow for the exact binaries of this release.
+          pkgname=ayugram-desktop-maintained-bin
+          pkgver=@VERSION@
+          pkgrel=@REL@
+          pkgdesc='AyuGram Desktop, technical maintenance build'
+          arch=('x86_64')
+          url='https://github.com/@REPO@'
+          license=('GPL-3.0-only')
+          depends=('glibc')
+          provides=('ayugram-desktop')
+          conflicts=('ayugram-desktop' 'ayugram-desktop-bin')
+          options=('!strip')
+          source=("AyuGram-$pkgver-$pkgrel.tar.xz::https://github.com/@REPO@/releases/download/v@RELEASE@/AyuGram.tar.xz")
+          sha256sums=('@SUM@')
+
+          package() {
+            install -Dm755 "$srcdir/AyuGram/AyuGram" "$pkgdir/usr/bin/AyuGram"
+            install -d "$pkgdir/usr"
+            cp -a "$srcdir/AyuGram/share" "$pkgdir/usr/share"
+          }
+          PKGBUILD
+          sed -i -e "s|@VERSION@|$VERSION|" -e "s|@REL@|$rel|" -e "s|@REPO@|$GITHUB_REPOSITORY|g" \
+            -e "s|@RELEASE@|$RELEASE|" -e "s|@SUM@|$sum|" release/PKGBUILD
+          ! grep -q '@[A-Z]*@' release/PKGBUILD
       - name: Verify files and checksums
         run: |
           cd release
-          expected=(AyuGram.exe AyuGram.zip AyuGram.tar.xz "AyuGramDesktop-$RELEASE-full.tar.gz")
-          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 4
+          expected=(AyuGram.exe AyuGram.zip AyuGram.tar.xz AyuGram-x86_64.AppImage "ayugram-desktop_${RELEASE}_amd64.deb" PKGBUILD "AyuGramDesktop-$RELEASE-full.tar.gz")
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 7
           for file in "${expected[@]}"; do test -s "$file"; done
           sha256sum "${expected[@]}" > SHA256SUMS.txt
           sha256sum --check SHA256SUMS.txt
@@ -564,6 +667,9 @@ jobs:
           - \`AyuGram.exe\`: Windows x64 installer
           - \`AyuGram.zip\`: Windows x64 portable application
           - \`AyuGram.tar.xz\`: Linux x86_64 portable application
+          - \`AyuGram-x86_64.AppImage\`: Linux x86_64 AppImage
+          - \`ayugram-desktop_${RELEASE}_amd64.deb\`: Debian and Ubuntu package
+          - \`PKGBUILD\`: Arch Linux package, \`makepkg -si\` in a directory holding it
           - \`AyuGramDesktop-$RELEASE-full.tar.gz\`: source with pinned submodules
 
           Automatic updates are disabled. Windows binaries are not
