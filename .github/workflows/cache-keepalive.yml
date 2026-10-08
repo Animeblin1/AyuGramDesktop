@@ -20,28 +20,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  macos:
-    name: macOS caches
-    runs-on: macos-15
+  linux:
+    name: Linux caches
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/cache/restore@v6
         with:
-          path: |
-            Libraries
-            ThirdParty
-          key: macos-universal-release-
-          restore-keys: macos-universal-release-
-      - uses: actions/cache/restore@v6
-        with:
           path: ${{ github.workspace }}/ccache
-          key: ccache-macos-arm64-release-
-          restore-keys: ccache-macos-arm64-release-
-      - uses: actions/cache/restore@v6
-        with:
-          path: ${{ github.workspace }}/ccache
-          key: ccache-macos-x86_64-release-
-          restore-keys: ccache-macos-x86_64-release-
+          key: ccache-linux-x86_64-release-
+          restore-keys: ccache-linux-x86_64-release-
 
   windows:
     name: Windows caches

@@ -1,0 +1,101 @@
+name: Linux build image
+
+# Builds the centos_env toolchain image from this fork's own Dockerfile and
+# pushes it to GHCR, tagged by a hash of the files that define it. The Release
+# workflow pulls the image with the same tag, so run this once per change to
+# Telegram/build/docker/centos_env, from the default branch, naming the branch
+# whose Dockerfile the release will use:
+#   gh workflow run "Linux build image" --ref dev -f ref=codex/ayu-<version>
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch whose Dockerfile to build, for example codex/ayu-7.2.9
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-image
+  cancel-in-progress: false
+
+jobs:
+  image:
+    name: Build and push centos_env image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: test "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          path: AyuGramDesktop
+          persist-credentials: false
+      - name: Resolve image tag
+        id: image
+        env:
+          # Must stay identical to the hash in release.yml.
+          HASH: ${{ hashFiles('AyuGramDesktop/Telegram/build/docker/centos_env/Dockerfile', 'AyuGramDesktop/Telegram/build/docker/centos_env/gen_dockerfile.py', 'AyuGramDesktop/Telegram/build/docker/centos_env/centos_env/__init__.py', 'AyuGramDesktop/Telegram/build/docker/centos_env/pyproject.toml', 'AyuGramDesktop/Telegram/build/docker/centos_env/poetry.lock') }}
+        run: |
+          test -n "$HASH"
+          repo="${GITHUB_REPOSITORY,,}"
+          echo "ref=ghcr.io/$repo/centos-env:$HASH" >> "$GITHUB_OUTPUT"
+      - name: Log in to GHCR
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Skip when the image already exists
+        id: exists
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+        run: |
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+            echo "Image \`$IMAGE\` already exists, nothing to build." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Free disk space
+        if: steps.exists.outputs.exists != 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h
+      - uses: actions/setup-python@v6
+        if: steps.exists.outputs.exists != 'true'
+        with:
+          python-version: '3.12'
+      - name: Generate Dockerfile
+        if: steps.exists.outputs.exists != 'true'
+        working-directory: AyuGramDesktop/Telegram/build/docker/centos_env
+        run: |
+          python3 -m pip install poetry
+          poetry install
+          mkdir -p "$RUNNER_TEMP/image"
+          poetry run gen_dockerfile > "$RUNNER_TEMP/image/Dockerfile"
+          test -s "$RUNNER_TEMP/image/Dockerfile"
+      - name: Build image
+        if: steps.exists.outputs.exists != 'true'
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+          DOCKER_BUILDKIT: '1'
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            -t "$IMAGE" \
+            -f "$RUNNER_TEMP/image/Dockerfile" \
+            "$RUNNER_TEMP/image"
+          df -h
+      - name: Push image
+        if: steps.exists.outputs.exists != 'true'
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+        run: |
+          docker push "$IMAGE"
+          echo "Pushed \`$IMAGE\`." >> "$GITHUB_STEP_SUMMARY"

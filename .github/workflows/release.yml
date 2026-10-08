@@ -122,290 +122,6 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-  macos-build:
-    name: macOS ${{ matrix.architecture }} Release
-    needs: validate
-    runs-on: macos-15
-    timeout-minutes: 350
-    permissions:
-      contents: read
-      actions: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - architecture: arm64
-            swift_target: arm64-apple-macos11.0
-          - architecture: x86_64
-            swift_target: x86_64-apple-macos10.13
-    env:
-      GH_TOKEN: ${{ github.token }}
-      CCACHE_DIR: ${{ github.workspace }}/ccache
-      CCACHE_BASEDIR: ${{ github.workspace }}
-      CCACHE_MAXSIZE: 2G
-      CCACHE_COMPILERCHECK: content
-      CCACHE_SLOPPINESS: pch_defines,time_macros
-      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.validate.outputs.sha }}
-          submodules: recursive
-          path: AyuGramDesktop
-          persist-credentials: false
-      - name: Install build tools
-        id: toolchain
-        run: |
-          test -d "$DEVELOPER_DIR"
-          brew install automake libtool meson nasm ninja pkg-config wget ccache
-          sudo xcode-select -s "$DEVELOPER_DIR"
-          echo "id=$( { xcodebuild -version; xcrun --sdk macosx --show-sdk-version; } | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
-      - name: Restore libraries cache
-        id: libraries-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            Libraries
-            ThirdParty
-          key: macos-universal-release-${{ steps.toolchain.outputs.id }}-${{ hashFiles('AyuGramDesktop/Telegram/build/prepare/**', 'AyuGramDesktop/Telegram/build/qt_version.py') }}
-          restore-keys: macos-universal-release-${{ steps.toolchain.outputs.id }}-
-      - name: Prepare libraries
-        env:
-          # The dependency tree is cached whole, so a compiler cache here only
-          # spends the compile cache budget on objects nothing reads again.
-          CCACHE_DISABLE: '1'
-        run: |
-          ./AyuGramDesktop/Telegram/build/prepare/mac.sh silent qt-release-only
-          find Libraries '(' '(' ! '(' -name '*.a' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -perm +111 ')' -type f ')' -o -empty ')' -delete
-      - name: Save libraries cache
-        if: steps.libraries-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: |
-            Libraries
-            ThirdParty
-          key: ${{ steps.libraries-cache.outputs.cache-primary-key }}
-      - name: Drop superseded libraries caches
-        continue-on-error: true
-        env:
-          KEEP: |
-            ${{ steps.libraries-cache.outputs.cache-primary-key }}
-          PREFIXES: macos-universal-release-
-        run: |
-          # Kept under ten gigabytes by deleting what each save superseded,
-          # right after that save rather than at the end of the job.
-          for prefix in $PREFIXES; do
-            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |
-              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
-          done
-      - name: Restore compiler cache
-        id: compiler-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ github.workspace }}/ccache
-          key: ccache-macos-${{ matrix.architecture }}-release-${{ needs.validate.outputs.sha }}
-          restore-keys: ccache-macos-${{ matrix.architecture }}-release-
-      - name: Build ${{ matrix.architecture }} Release
-        working-directory: AyuGramDesktop/Telegram
-        env:
-          ARCHITECTURE: ${{ matrix.architecture }}
-          SWIFT_TARGET: ${{ matrix.swift_target }}
-          TDESKTOP_API_ID: ${{ vars.TDESKTOP_API_ID }}
-          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
-        run: |
-          ccache --zero-stats > /dev/null
-          sysctl -n hw.ncpu hw.memsize
-          export CMAKE_BUILD_TYPE=Release
-          rm -rf ../out
-          ./configure.sh -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-            "-DCMAKE_OSX_ARCHITECTURES=$ARCHITECTURE" \
-            "-DCMAKE_Swift_FLAGS=-target $SWIFT_TARGET" \
-            "-DDESKTOP_APP_MAC_ARCH=$ARCHITECTURE" \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_OBJC_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache \
-            '-DCMAKE_CXX_FLAGS=-Xclang -fno-pch-timestamp' \
-            '-DCMAKE_OBJCXX_FLAGS=-Xclang -fno-pch-timestamp' \
-            "-DTDESKTOP_API_ID=$TDESKTOP_API_ID" \
-            "-DTDESKTOP_API_HASH=$TDESKTOP_API_HASH" \
-            -DDESKTOP_APP_DISABLE_AUTOUPDATE=ON \
-            -DDESKTOP_APP_DISABLE_CRASH_REPORTS=ON
-          python3 build/check_macos_release.py ../out --architectures "$ARCHITECTURE"
-          while :; do
-            printf '%s swap=%s pageouts=%s\n' \
-              "$(date -u +%H:%M:%S)" \
-              "$(sysctl -n vm.swapusage | sed -n 's/.*used = \([0-9.]*\)M.*/\1/p')" \
-              "$(vm_stat | sed -n 's/^Pageouts: *\([0-9]*\)\./\1/p')"
-            sleep 60 & wait $!
-          done > "$RUNNER_TEMP/memory.log" 2>&1 &
-          sampler=$!
-          trap 'kill "$sampler" 2> /dev/null || true' EXIT
-          cmake --build ../out --parallel 3 --target Telegram
-          mkdir -p "../mac-apps/$ARCHITECTURE"
-          ditto ../out/AyuGram.app "../mac-apps/$ARCHITECTURE/AyuGram.app"
-          tar -C ../mac-apps -cf "../mac-apps/$ARCHITECTURE.tar" "$ARCHITECTURE"
-      - name: Build statistics
-        if: always()
-        continue-on-error: true
-        env:
-          ARCHITECTURE: ${{ matrix.architecture }}
-        run: |
-          ccache --show-stats -v || true
-          python3 AyuGramDesktop/Telegram/build/ninja_log_stats.py AyuGramDesktop/out/.ninja_log \
-            --title "macOS $ARCHITECTURE Release" --markdown-file "$GITHUB_STEP_SUMMARY"
-          {
-            echo
-            echo "<details><summary>macOS $ARCHITECTURE compiler cache and memory</summary>"
-            echo
-            echo '```'
-            ccache --show-stats -v || true
-            echo
-            awk '{ last = $0
-                   for (i = 1; i <= NF; i++) if ($i ~ /^swap=/) { v = substr($i, 6) + 0; if (v >= peak) { peak = v; line = $0 } } }
-                 END { if (NR) print "samples: " NR "\npeak:  " line "\nlast:  " last }' \
-              "$RUNNER_TEMP/memory.log" 2> /dev/null || true
-            echo '```'
-            echo
-            echo "</details>"
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Drop superseded compiler caches
-        # Matches the save below, so a failed build still replaces its cache.
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        env:
-          KEEP: |
-            ${{ steps.compiler-cache.outputs.cache-primary-key }}
-          PREFIXES: ccache-macos-${{ matrix.architecture }}-release-
-        run: |
-          # Deleted before the save rather than after it: the two would
-          # otherwise coexist and the repository would pass the ten
-          # gigabyte limit, evicting a dependency tree that costs hours.
-          # Safe only for a compiler cache, which one run rebuilds.
-          for prefix in $PREFIXES; do
-            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |
-              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
-          done
-      - name: Save compiler cache
-        # Saved even when the build failed: a retry then resumes from the
-        # objects this run did produce instead of recompiling everything.
-        if: ${{ !cancelled() && steps.compiler-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ github.workspace }}/ccache
-          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
-      - uses: actions/upload-artifact@v7
-        with:
-          name: macos-app-${{ matrix.architecture }}
-          path: AyuGramDesktop/mac-apps/${{ matrix.architecture }}.tar
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-
-  macos:
-    name: macOS universal Release
-    needs: [validate, macos-build]
-    runs-on: macos-15
-    timeout-minutes: 30
-    env:
-      VERSION: ${{ needs.validate.outputs.version }}
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: macos-app-*
-          path: mac-apps
-          merge-multiple: true
-      - name: Verify app and create DMG
-        run: |
-          trap 'echo "macOS packaging failed at line $LINENO." >&2' ERR
-          tar -C mac-apps -xf mac-apps/arm64.tar
-          tar -C mac-apps -xf mac-apps/x86_64.tar
-          app=release/AyuGram.app
-          arm=mac-apps/arm64/AyuGram.app
-          intel=mac-apps/x86_64/AyuGram.app
-          rm -rf release dmg artifacts
-          mkdir -p release
-          ditto "$arm" "$app"
-          if [[ ! -s "$app/Contents/MacOS/AyuGram" ]]; then
-            echo 'AyuGram executable is missing after copying the arm64 bundle.' >&2
-            find "$app/Contents" -maxdepth 3 -print >&2
-            exit 1
-          fi
-          while IFS= read -r -d '' arm_file; do
-            if ! file "$arm_file" | grep -q 'Mach-O'; then continue; fi
-            relative=${arm_file#"$arm/"}
-            intel_file="$intel/$relative"
-            output="$app/$relative"
-            test -f "$intel_file"
-            arm_archs=" $(lipo -archs "$arm_file") "
-            intel_archs=" $(lipo -archs "$intel_file") "
-            if [[ "$arm_archs" == *' arm64 '* && "$arm_archs" == *' x86_64 '* ]]; then
-              continue
-            fi
-            if [[ "$relative" == Contents/Frameworks/libswift*.dylib && "$arm_archs" == "$intel_archs" ]]; then
-              if [[ "$arm_archs" != *' x86_64 '* ]]; then
-                echo "Unsupported matching Swift fallback architectures for $relative:$arm_archs" >&2
-                exit 1
-              fi
-              continue
-            fi
-            [[ "$arm_archs" == *' arm64 '* && "$intel_archs" == *' x86_64 '* ]]
-            lipo -create "$arm_file" "$intel_file" -output "$output"
-          done < <(find "$arm" -type f -print0)
-          while IFS= read -r -d '' output_file; do
-            if ! file "$output_file" | grep -q 'Mach-O'; then continue; fi
-            relative=${output_file#"$app/"}
-            output_archs=" $(lipo -archs "$output_file") "
-            if [[ "$relative" == Contents/Frameworks/libswift*.dylib ]]; then
-              if [[ "$output_archs" != *' x86_64 '* ]]; then
-                echo "Swift fallback $relative has unsupported architectures:$output_archs" >&2
-                exit 1
-              fi
-              continue
-            fi
-            [[ "$output_archs" == *' arm64 '* && "$output_archs" == *' x86_64 '* ]]
-          done < <(find "$app" -type f -print0)
-          if [[ ! -s "$app/Contents/MacOS/AyuGram" ]]; then
-            echo 'AyuGram executable is missing after merging the bundles.' >&2
-            find "$app/Contents" -maxdepth 3 -print >&2
-            exit 1
-          fi
-          test -s "$app/Contents/Resources/Telegram.rcc"
-          test -s "$app/Contents/Resources/AppIcon-Default.icns"
-          test "$(lipo -archs "$app/Contents/MacOS/AyuGram" | tr ' ' '\n' | sort | tr '\n' ' ')" = 'arm64 x86_64 '
-          test "$(plutil -extract CFBundleIdentifier raw -o - "$app/Contents/Info.plist")" = one.ayugram.AyuGramDesktop
-          test "$(plutil -extract CFBundleShortVersionString raw -o - "$app/Contents/Info.plist")" = "$VERSION"
-          test "$(plutil -extract CFBundleVersion raw -o - "$app/Contents/Info.plist")" = "$VERSION"
-          icon_name=$(plutil -extract CFBundleIconFile raw -o - "$app/Contents/Info.plist")
-          test -s "$app/Contents/Resources/$icon_name"
-          test ! -e "$app/Contents/Frameworks/Updater"
-          /usr/bin/strip -x "$app/Contents/MacOS/AyuGram"
-          codesign --force --deep --sign - "$app"
-          codesign --verify --deep --strict --verbose=2 "$app"
-          codesign -dv --verbose=4 "$app"
-          mkdir -p dmg artifacts
-          ditto "$app" dmg/AyuGram.app
-          ln -s /Applications dmg/Applications
-          hdiutil create -volname AyuGram -srcfolder dmg -ov -format UDZO artifacts/AyuGram.dmg
-          mkdir "$RUNNER_TEMP/ayugram-mount"
-          device=$(hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/ayugram-mount" artifacts/AyuGram.dmg | awk '/^\/dev\// { print $1; exit }')
-          test -n "$device"
-          trap 'hdiutil detach "$device"' EXIT
-          test -s "$RUNNER_TEMP/ayugram-mount/AyuGram.app/Contents/MacOS/AyuGram"
-          codesign --verify --deep --strict "$RUNNER_TEMP/ayugram-mount/AyuGram.app"
-          test "$(lipo -archs "$RUNNER_TEMP/ayugram-mount/AyuGram.app/Contents/MacOS/AyuGram" | tr ' ' '\n' | sort | tr '\n' ' ')" = 'arm64 x86_64 '
-          hdiutil detach "$device"
-          trap - EXIT
-      - uses: actions/upload-artifact@v7
-        with:
-          name: release-macos
-          path: artifacts/AyuGram.dmg
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-
   windows:
     name: Windows x64 Release
     needs: validate
@@ -689,9 +405,132 @@ jobs:
           compression-level: 0
           retention-days: 1
 
+  linux:
+    name: Linux x86_64 Release
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      actions: write
+      packages: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CCACHE_MAXSIZE: 3G
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: pch_defines,time_macros
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          submodules: recursive
+          path: AyuGramDesktop
+          persist-credentials: false
+      - name: Resolve build image
+        id: image
+        env:
+          # Must stay identical to the hash in linux-image.yml.
+          HASH: ${{ hashFiles('AyuGramDesktop/Telegram/build/docker/centos_env/Dockerfile', 'AyuGramDesktop/Telegram/build/docker/centos_env/gen_dockerfile.py', 'AyuGramDesktop/Telegram/build/docker/centos_env/centos_env/__init__.py', 'AyuGramDesktop/Telegram/build/docker/centos_env/pyproject.toml', 'AyuGramDesktop/Telegram/build/docker/centos_env/poetry.lock') }}
+        run: |
+          test -n "$HASH"
+          repo="${GITHUB_REPOSITORY,,}"
+          echo "ref=ghcr.io/$repo/centos-env:$HASH" >> "$GITHUB_OUTPUT"
+      - name: Pull build image
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if ! docker pull "$IMAGE"; then
+            echo "Build image $IMAGE is missing. Run the 'Linux build image' workflow for this release branch first." >&2
+            exit 1
+          fi
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/ccache
+          key: ccache-linux-x86_64-release-${{ needs.validate.outputs.sha }}
+          restore-keys: ccache-linux-x86_64-release-
+      - name: Build AyuGram
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+          TDESKTOP_API_ID: ${{ vars.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          mkdir -p "$CCACHE_DIR"
+          nproc
+          free -g
+          df -h
+          docker run --rm \
+            -u "$(id -u)" \
+            -v "$PWD/AyuGramDesktop:/usr/src/tdesktop" \
+            -v "$CCACHE_DIR:/var/cache/ccache" \
+            -e CCACHE_DIR=/var/cache/ccache \
+            -e CCACHE_MAXSIZE \
+            -e CCACHE_COMPILERCHECK \
+            -e CCACHE_SLOPPINESS \
+            -e TDESKTOP_API_ID \
+            -e TDESKTOP_API_HASH \
+            "$IMAGE" \
+            /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+            -D "TDESKTOP_API_ID=$TDESKTOP_API_ID" \
+            -D "TDESKTOP_API_HASH=$TDESKTOP_API_HASH" \
+            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
+            -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+      - name: Build statistics
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 AyuGramDesktop/Telegram/build/ninja_log_stats.py AyuGramDesktop/out/.ninja_log \
+            --title 'Linux x86_64 Release' --markdown-file "$GITHUB_STEP_SUMMARY"
+          df -h || true
+      - name: Drop superseded compiler caches
+        # Matches the save below, so a failed build still replaces its cache.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          KEEP: |
+            ${{ steps.compiler-cache.outputs.cache-primary-key }}
+          PREFIXES: ccache-linux-x86_64-release-
+        run: |
+          for prefix in $PREFIXES; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |
+              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
+          done
+      - name: Save compiler cache
+        # Saved even when the build failed, so a retry resumes from its objects.
+        if: ${{ !cancelled() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ github.workspace }}/ccache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Verify and package Linux artifacts
+        run: |
+          binary=$(find AyuGramDesktop/out -maxdepth 2 -type f -name AyuGram | head -n 1)
+          test -n "$binary"
+          test -s "$binary"
+          info=$(file "$binary")
+          echo "$info"
+          grep -q 'ELF 64-bit' <<< "$info"
+          grep -q 'x86-64' <<< "$info"
+          test -z "$(find AyuGramDesktop/out -maxdepth 2 -type f -name Updater)"
+          strip "$binary"
+          mkdir -p artifacts release/AyuGram
+          install -m 0755 "$binary" release/AyuGram/AyuGram
+          tar -C release --owner=0 --group=0 -cJf artifacts/AyuGram.tar.xz AyuGram
+          tar -tJf artifacts/AyuGram.tar.xz | grep -qx 'AyuGram/AyuGram'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-linux
+          path: artifacts/AyuGram.tar.xz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
   publish:
     name: Publish GitHub Release
-    needs: [validate, source, macos, windows]
+    needs: [validate, source, windows, linux]
     if: needs.validate.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -711,7 +550,7 @@ jobs:
       - name: Verify files and checksums
         run: |
           cd release
-          expected=(AyuGram.dmg AyuGram.exe AyuGram.zip "AyuGramDesktop-$RELEASE-full.tar.gz")
+          expected=(AyuGram.exe AyuGram.zip AyuGram.tar.xz "AyuGramDesktop-$RELEASE-full.tar.gz")
           test "$(find . -maxdepth 1 -type f | wc -l)" -eq 4
           for file in "${expected[@]}"; do test -s "$file"; done
           sha256sum "${expected[@]}" > SHA256SUMS.txt
@@ -722,13 +561,12 @@ jobs:
           Technical maintenance build of AyuGram $VERSION from commit \`$SHA\`.
           Changes are listed in [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/v$RELEASE/CHANGELOG.md).
 
-          - \`AyuGram.dmg\`: universal macOS application (Apple Silicon and Intel)
           - \`AyuGram.exe\`: Windows x64 installer
           - \`AyuGram.zip\`: Windows x64 portable application
+          - \`AyuGram.tar.xz\`: Linux x86_64 portable application
           - \`AyuGramDesktop-$RELEASE-full.tar.gz\`: source with pinned submodules
 
-          Automatic updates are disabled. The macOS application has an ad-hoc
-          integrity signature and is not notarized. Windows binaries are not
+          Automatic updates are disabled. Windows binaries are not
           Authenticode-signed. Verify downloads with \`SHA256SUMS.txt\`.
           NOTES
           gh release create "v$RELEASE" release/* \
