@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Release branch to build, for example codex/ayu-7.2.8
+        description: Release branch to build, codex/ayu-<version>
         required: true
       revision:
-        description: Rebuild number of an already released version, for example 2 publishes v7.2.9-2
+        description: Rebuild number of an already released version, 2 publishes v<version>-2
         required: false
         default: ''
 
@@ -275,8 +275,8 @@ jobs:
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Drop superseded compiler caches
-        # Matches the save below, so a failed build still replaces its cache.
-        if: ${{ !cancelled() }}
+        # Same condition as the save below: an empty key would keep nothing.
+        if: ${{ always() && steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true' }}
         continue-on-error: true
         env:
           KEEP: |
@@ -611,8 +611,8 @@ jobs:
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Drop superseded compiler caches
-        # Matches the save below, so a failed build still replaces its cache.
-        if: ${{ !cancelled() }}
+        # Same condition as the save below: an empty key would keep nothing.
+        if: ${{ always() && steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true' }}
         continue-on-error: true
         shell: bash
         env:
