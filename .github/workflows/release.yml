@@ -292,9 +292,9 @@ jobs:
               grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
           done
       - name: Save compiler cache
-        # Saved even when the build failed: a retry then resumes from the
-        # objects this run did produce instead of recompiling everything.
-        if: ${{ !cancelled() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        # Saved even when the build failed or was cancelled: a retry then resumes
+        # from the objects this run did produce instead of recompiling everything.
+        if: ${{ always() && steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: ${{ github.workspace }}/ccache
@@ -629,9 +629,9 @@ jobs:
               grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
           done
       - name: Save compiler cache
-        # Saved even when the build failed: a retry then resumes from the
-        # objects this run did produce instead of recompiling everything.
-        if: ${{ !cancelled() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        # Saved even when the build failed or was cancelled: a retry then resumes
+        # from the objects this run did produce instead of recompiling everything.
+        if: ${{ always() && steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: ${{ env.TBUILD }}\ccache
