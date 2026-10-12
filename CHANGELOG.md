@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.3.1 - 2026-10-12
+
+- Updated the application base to Telegram Desktop 7.3.1 ahead of an AyuGram
+  release of it. This brings the wallet added in 7.3, Unicode 17 emoji from
+  7.2.10, and the fixes of both.
+- `lib_ui` and `codegen` come from this fork's copies of AyuGram's branches
+  with Telegram Desktop 7.3.1 merged in, until AyuGram publishes the same pins.
+- Keep the generated wallet engine sources in the cached dependency tree, as
+  Telegram Desktop's own workflow does.
+
 ## 7.2.9-3 - 2026-10-05
 
 - Strip local symbols from the macOS executable. The release step removed only
