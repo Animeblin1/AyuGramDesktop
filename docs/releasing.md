@@ -124,7 +124,9 @@ whole point: three compiler caches coexisting with their predecessors come to
 about eleven gigabytes, which passes the limit and evicts by least recent use,
 and the entry least recently used is a dependency tree that costs two hours to
 rebuild. Deleting first is safe only for a compiler cache, which one run
-refills.
+refills. A successful build also evicts every object it did not use before the
+save. Without that, each version leaves the previous one's objects behind, the
+compiler caches fill to their maximum, and the six entries pass the limit.
 
 The Windows compiler cache is three gigabytes rather than two. A Release build
 compiles about 2550 translation units, which occupy 2.2 GB; in two gigabytes
