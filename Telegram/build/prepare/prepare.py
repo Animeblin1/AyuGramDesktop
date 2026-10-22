@@ -6,6 +6,7 @@ scriptPath = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(scriptPath + '/..')
 import qt_version
 import build_mac
+from qt_options import qt_options
 
 def finish(code):
     global executePath
@@ -64,6 +65,9 @@ optionsList = [
     'skip-release',
     'build-stackwalk',
     'qt-asserts',
+    'qt-release-only',
+    'mac-arm64',
+    'mac-x86_64',
 ]
 options = []
 runCommand = []
@@ -78,6 +82,13 @@ for arg in sys.argv[1:]:
     elif arg == 'shell':
         customRunCommand = True
         runCommand.append('shell')
+
+try:
+    qtConfiguration, macQtArchitectures = qt_options(options)
+except ValueError as exception:
+    error(str(exception))
+if not mac and any(option in options for option in ('mac-arm64', 'mac-x86_64')):
+    error('Architecture selection requires macOS.')
 
 pathPrefixes = [
     'ThirdParty\\msys64\\ucrt64\\bin',
@@ -1623,10 +1634,7 @@ win:
     )
     cd ..
 
-    SET CONFIGURATIONS=-debug
-release:
-    SET CONFIGURATIONS=-debug-and-release
-win:
+    SET CONFIGURATIONS=""" + qtConfiguration + """
     """ + removeDir('"%LIBS_DIR%\\Qt-' + qt + '"') + """
     SET ANGLE_DIR=%LIBS_DIR%\\tg_angle
     SET ANGLE_LIBS_DIR=%ANGLE_DIR%\\out
@@ -1696,10 +1704,8 @@ mac:
     find $PWD/../patches/qtsvg_$QT -type f -print0 | sort -z | xargs -0 git -C qtsvg apply -v
     sed -i.bak 's/tqtc-//' {qtimageformats,qtsvg}/dependencies.yaml
 
-    CONFIGURATIONS=-debug
+    CONFIGURATIONS=""" + qtConfiguration + """
     ASSERTS=
-release:
-    CONFIGURATIONS=-debug-and-release
 mac_asserts:
     ASSERTS=-force-asserts
 mac:
@@ -1720,7 +1726,7 @@ mac:
         -no-feature-brotli \
         -no-feature-cxx17_filesystem \
         -platform macx-clang -- \
-        -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+        -DCMAKE_OSX_ARCHITECTURES=\"""" + macQtArchitectures + """\" \
         -DCMAKE_OSX_SYSROOT="$SDKROOT" \
         -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
         -DCMAKE_PREFIX_PATH="$USED_PREFIX" \
@@ -1758,10 +1764,8 @@ win:
     )
     cd ..
 
-    SET CONFIGURATIONS=-debug
+    SET CONFIGURATIONS=""" + qtConfiguration + """
     SET ASSERTS=
-release:
-    SET CONFIGURATIONS=-debug-and-release
 win_asserts:
     SET ASSERTS=-force-asserts
 win:
