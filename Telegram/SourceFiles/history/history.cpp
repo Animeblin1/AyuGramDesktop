@@ -1702,6 +1702,19 @@ void History::newItemAdded(not_null<HistoryItem*> item, NewAddType type) {
 		from->madeAction(item->date());
 	}
 	item->contributeToSlowmode();
+	// WHY: count it before notifyNewItemAdded: a shown chat may read it
+	// synchronously, and readInboxTill trusts the unread count.
+	if (!item->out()) {
+		if (item->unread(this)) {
+			if (unreadCountKnown()) {
+				setUnreadCount(unreadCount() + 1);
+			} else if (!isForum()) {
+				owner().histories().requestDialogEntry(this);
+			}
+		} else {
+			inboxRead(item);
+		}
+	}
 	auto notification = Data::ItemNotification{
 		.item = item,
 		.type = Data::ItemNotificationType::Message,
@@ -1729,16 +1742,6 @@ void History::newItemAdded(not_null<HistoryItem*> item, NewAddType type) {
 		}
 		if (item->changesWallPaper()) {
 			peer->updateFullForced();
-		}
-	} else {
-		if (item->unread(this)) {
-			if (unreadCountKnown()) {
-				setUnreadCount(unreadCount() + 1);
-			} else if (!isForum()) {
-				owner().histories().requestDialogEntry(this);
-			}
-		} else {
-			inboxRead(item);
 		}
 	}
 	if (type != NewAddType::StreamedDraftFinish) {
