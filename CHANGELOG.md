@@ -1,5 +1,18 @@
 # Changelog
 
+## 7.3.3 - 2026-10-22
+
+- Updated the application base to Telegram Desktop 7.3.3 ahead of an AyuGram
+  release of it, with the fixes of 7.3.2 and 7.3.3. The base also carries
+  AyuGram's unreleased fix that honors the similar channels setting in search.
+- Fixed incoming messages that stayed unread on other devices after being
+  read here. A chat open at the bottom could read a new message before its
+  unread count included it, and the read never reached the server, so other
+  devices kept the unread badge and the notification.
+- `lib_ui` comes from this fork's copy of AyuGram's branch with Telegram
+  Desktop 7.3.3 merged in; `codegen` keeps its 7.3.1 copy, which 7.3.3 did
+  not move.
+
 ## 7.3.1 - 2026-10-12
 
 - Updated the application base to Telegram Desktop 7.3.1 ahead of an AyuGram
