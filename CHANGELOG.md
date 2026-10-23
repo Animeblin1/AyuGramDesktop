@@ -9,6 +9,7 @@
   read here. A chat open at the bottom could read a new message before its
   unread count included it, and the read never reached the server, so other
   devices kept the unread badge and the notification.
+- The Windows build moves from Qt 5 to Qt 6, as Telegram Desktop 7.3.2 did.
 - `lib_ui` comes from this fork's copy of AyuGram's branch with Telegram
   Desktop 7.3.3 merged in; `codegen` keeps its 7.3.1 copy, which 7.3.3 did
   not move.

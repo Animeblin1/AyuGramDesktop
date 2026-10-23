@@ -1828,8 +1828,10 @@ win:
         -D LCMS2_INCLUDE_DIR="%LCMS2_DIR%\\include" ^
         -D LCMS2_LIBRARIES="%LCMS2_DIR%\\out\\Release\\src\\liblcms2.a"
 
+""" + ('' if qtConfiguration == '-release' else """\
     cmake --build . --config Debug
     cmake --install . --config Debug
+""") + """\
     cmake --build .
     cmake --install .
 """)
