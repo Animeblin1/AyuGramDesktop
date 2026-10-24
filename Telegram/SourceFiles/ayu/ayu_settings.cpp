@@ -687,6 +687,40 @@ void AyuSettings::setWebAppsWindowed(bool val) {
 	_webAppsWindowed = val;
 	save();
 }
+void AyuSettings::setCaretSpeed(int val) {
+	if (_caretSpeed.current() == val) return;
+	_caretSpeed = val;
+	AyuUiSettings::setCaretSpeed(val);
+	save();
+}
+
+void AyuSettings::setCaretBlink(bool val) {
+	if (_caretBlink.current() == val) return;
+	_caretBlink = val;
+	AyuUiSettings::setCaretBlink(val);
+	save();
+}
+
+void AyuSettings::setBlinkMs(int val) {
+	if (_blinkMs.current() == val) return;
+	_blinkMs = val;
+	AyuUiSettings::setBlinkMs(val);
+	save();
+}
+
+void AyuSettings::setCaretAccent(bool val) {
+	if (_caretAccent.current() == val) return;
+	_caretAccent = val;
+	AyuUiSettings::setCaretAccent(val);
+	save();
+}
+
+void AyuSettings::setScrollSpeed(int val) {
+	if (_scrollSpeed.current() == val) return;
+	_scrollSpeed = val;
+	AyuUiSettings::setScrollSmoothSpeed(val);
+	save();
+}
 
 void AyuSettings::setRemoveMessageTail(bool val) {
 	if (_removeMessageTail.current() == val) return;
@@ -1153,6 +1187,11 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"smoothScroll", s._smoothScroll.current()},
 		{"profileGradientFromAvatar", s._profileGradientFromAvatar.current()},
 		{"webAppsWindowed", s._webAppsWindowed.current()},
+		{"caretSpeed", s._caretSpeed.current()},
+		{"caretBlink", s._caretBlink.current()},
+		{"blinkMs", s._blinkMs.current()},
+		{"caretAccent", s._caretAccent.current()},
+		{"scrollSpeed", s._scrollSpeed.current()},
 		{"removeMessageTail", s._removeMessageTail.current()},
 		{"disableNotificationsDelay", s._disableNotificationsDelay.current()},
 		{"localPremium", s._localPremium.current()},
@@ -1328,6 +1367,17 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._hideOutgoingProxyLinks = j.value("hideOutgoingProxyLinks", defaults._hideOutgoingProxyLinks.current());
 	s._crashReporting = j.value("crashReporting", defaults._crashReporting.current());
 	s._avatarCorners = j.value("avatarCorners", defaults._avatarCorners.current());
+	s._webAppsWindowed = j.value("webAppsWindowed", defaults._webAppsWindowed.current());
+	s._caretSpeed = j.value("caretSpeed", defaults._caretSpeed.current());
+	s._caretBlink = j.value("caretBlink", defaults._caretBlink.current());
+	s._blinkMs = j.value("blinkMs", defaults._blinkMs.current());
+	s._caretAccent = j.value("caretAccent", defaults._caretAccent.current());
+	s._scrollSpeed = j.value("scrollSpeed", defaults._scrollSpeed.current());
+	validateRange(_caretSpeed, 0, 100, defaults._caretSpeed);
+	validateRange(_caretBlink, 0, 1, defaults._caretBlink);
+	validateRange(_blinkMs, 200, 1000, defaults._blinkMs);
+	validateRange(_caretAccent, 0, 1, defaults._caretAccent);
+	validateRange(_scrollSpeed, 0, 100, defaults._scrollSpeed);
 	s._singleCornerRadius = j.value("singleCornerRadius", defaults._singleCornerRadius.current());
 	s._streamerMode = j.value("streamerMode", defaults._streamerMode.current());
 

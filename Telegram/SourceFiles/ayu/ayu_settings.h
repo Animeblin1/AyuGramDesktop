@@ -318,6 +318,11 @@ public:
 	[[nodiscard]] bool smoothScroll() const { return _smoothScroll.current(); }
 	[[nodiscard]] bool profileGradientFromAvatar() const { return _profileGradientFromAvatar.current(); }
 	[[nodiscard]] bool webAppsWindowed() const { return _webAppsWindowed.current(); }
+	[[nodiscard]] int caretSpeed() const { return _caretSpeed.current(); }
+	[[nodiscard]] bool caretBlink() const { return _caretBlink.current(); }
+	[[nodiscard]] int blinkMs() const { return _blinkMs.current(); }
+	[[nodiscard]] bool caretAccent() const { return _caretAccent.current(); }
+	[[nodiscard]] int scrollSpeed() const { return _scrollSpeed.current(); }
 	[[nodiscard]] bool removeMessageTail() const { return _removeMessageTail.current(); }
 	[[nodiscard]] bool disableNotificationsDelay() const { return _disableNotificationsDelay.current(); }
 	[[nodiscard]] bool localPremium() const { return _localPremium.current(); }
@@ -413,6 +418,11 @@ public:
 	void setSmoothScroll(bool val);
 	void setProfileGradientFromAvatar(bool val);
 	void setWebAppsWindowed(bool val);
+	void setCaretSpeed(int val);
+	void setCaretBlink(bool val);
+	void setBlinkMs(int val);
+	void setCaretAccent(bool val);
+	void setScrollSpeed(int val);
 	void setRemoveMessageTail(bool val);
 	void setDisableNotificationsDelay(bool val);
 	void setLocalPremium(bool val);
@@ -530,11 +540,21 @@ public:
 	[[nodiscard]] rpl::producer<bool> smoothScrollValue() const { return _smoothScroll.value(); }
 	[[nodiscard]] rpl::producer<bool> profileGradientFromAvatarValue() const { return _profileGradientFromAvatar.value(); }
 	[[nodiscard]] rpl::producer<bool> webAppsWindowedValue() const { return _webAppsWindowed.value(); }
+	[[nodiscard]] rpl::producer<int> caretSpeedValue() const { return _caretSpeed.value(); }
+	[[nodiscard]] rpl::producer<bool> caretBlinkValue() const { return _caretBlink.value(); }
+	[[nodiscard]] rpl::producer<int> blinkMsValue() const { return _blinkMs.value(); }
+	[[nodiscard]] rpl::producer<bool> caretAccentValue() const { return _caretAccent.value(); }
+	[[nodiscard]] rpl::producer<int> scrollSpeedValue() const { return _scrollSpeed.value(); }
 	[[nodiscard]] rpl::producer<bool> materialSwitchesChanges() const { return _materialSwitches.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothCaretChanges() const { return _smoothCaret.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothScrollChanges() const { return _smoothScroll.changes(); }
 	[[nodiscard]] rpl::producer<bool> profileGradientFromAvatarChanges() const { return _profileGradientFromAvatar.changes(); }
 	[[nodiscard]] rpl::producer<bool> webAppsWindowedChanges() const { return _webAppsWindowed.changes(); }
+	[[nodiscard]] rpl::producer<int> caretSpeedChanges() const { return _caretSpeed.changes(); }
+	[[nodiscard]] rpl::producer<bool> caretBlinkChanges() const { return _caretBlink.changes(); }
+	[[nodiscard]] rpl::producer<int> blinkMsChanges() const { return _blinkMs.changes(); }
+	[[nodiscard]] rpl::producer<bool> caretAccentChanges() const { return _caretAccent.changes(); }
+	[[nodiscard]] rpl::producer<int> scrollSpeedChanges() const { return _scrollSpeed.changes(); }
 	[[nodiscard]] rpl::producer<bool> removeMessageTailValue() const { return _removeMessageTail.value(); }
 	[[nodiscard]] rpl::producer<bool> removeMessageTailChanges() const { return _removeMessageTail.changes(); }
 	[[nodiscard]] rpl::producer<bool> disableNotificationsDelayValue() const { return _disableNotificationsDelay.value(); }
@@ -699,6 +719,11 @@ private:
 	rpl::variable<bool> _smoothScroll = true;
 	rpl::variable<bool> _profileGradientFromAvatar = true;
 	rpl::variable<bool> _webAppsWindowed = true;
+	rpl::variable<int> _caretSpeed = 50;
+	rpl::variable<bool> _caretBlink = true;
+	rpl::variable<int> _blinkMs = 500;
+	rpl::variable<bool> _caretAccent = false;
+	rpl::variable<int> _scrollSpeed = 50;
 	rpl::variable<bool> _removeMessageTail = false;
 	rpl::variable<bool> _disableNotificationsDelay = false;
 	rpl::variable<bool> _localPremium = false;

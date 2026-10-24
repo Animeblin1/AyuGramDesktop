@@ -9396,6 +9396,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_SmoothScroll" = "Smooth Scroll";
 "ayu_ProfileGradientFromAvatar" = "Profile Gradient From Avatar";
 "ayu_WebAppsWindowed" = "Open Web Apps Windowed";
+"ayu_CaretSpeed" = "Caret Speed";
+"ayu_CaretBlink" = "Caret Blinking";
+"ayu_BlinkRate" = "Blink Period";
+"ayu_CaretAccent" = "Accent Colored Caret";
+"ayu_ScrollSmoothness" = "Scroll Smoothing";
 "ayu_WebAppsWindowedDescription" = "Do not let bots open mini apps in fullscreen";
 "ayu_ProfileGradientFromAvatarDescription" = "Profile header gradient is built from the avatar colors";
 "ayu_DisableNotificationsDelay" = "Disable Notify Delay";

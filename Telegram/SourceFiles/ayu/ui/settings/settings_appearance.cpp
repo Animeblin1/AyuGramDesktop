@@ -222,6 +222,45 @@ void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = &AyuSettings::setWebAppsWindowed,
 	});
 	ayu.addSettingToggle({
+		.id = u"ayu/caretBlink"_q,
+		.title = tr::ayu_CaretBlink(),
+		.getter = &AyuSettings::caretBlink,
+		.setter = &AyuSettings::setCaretBlink,
+	});
+	ayu.addSlider({
+		.id = u"ayu/caretSpeedSlider"_q,
+		.title = tr::ayu_CaretSpeed(),
+		.steps = 101,
+		.current = settings->caretSpeed(),
+		.onChanged = [=](int val) {
+			AyuSettings::getInstance().setCaretSpeed(val);
+		},
+	});
+	ayu.addSlider({
+		.id = u"ayu/blinkMsSlider"_q,
+		.title = tr::ayu_BlinkRate(),
+		.steps = 801,
+		.current = settings->blinkMs() - 200,
+		.onChanged = [=](int val) {
+			AyuSettings::getInstance().setBlinkMs(val + 200);
+		},
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/caretAccent"_q,
+		.title = tr::ayu_CaretAccent(),
+		.getter = &AyuSettings::caretAccent,
+		.setter = &AyuSettings::setCaretAccent,
+	});
+	ayu.addSlider({
+		.id = u"ayu/scrollSpeedSlider"_q,
+		.title = tr::ayu_ScrollSmoothness(),
+		.steps = 101,
+		.current = settings->scrollSpeed(),
+		.onChanged = [=](int val) {
+			AyuSettings::getInstance().setScrollSpeed(val);
+		},
+	});
+	ayu.addSettingToggle({
 		.id = u"ayu/disableCustomBackgrounds"_q,
 		.altIds = { u"ayu/customThemes"_q },
 		.title = tr::ayu_DisableCustomBackgrounds(),
