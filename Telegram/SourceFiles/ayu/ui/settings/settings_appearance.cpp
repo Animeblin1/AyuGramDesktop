@@ -212,15 +212,8 @@ void BuildCaretPreview(SectionBuilder &builder) {
 				st::defaultInputField.heightMin);
 		}, field->lifetime());
 
-		raw->shownValue(
-		) | rpl::filter([=](bool shown) {
-			return shown;
-		}) | rpl::take(1) | rpl::on_next([=] {
-			field->setFocusFast();
-		}, field->lifetime());
-
-		// Demo: glide the caret between the ends when idle.
-		const auto toEnd = Ui::CreateChild<QObject>(raw);
+		// Demo: glide the caret between the ends - only while visible,
+		// so the timer doesn't tick inside a hidden section.
 		const auto timer = new QTimer(raw);
 		timer->setInterval(1800);
 		QObject::connect(timer, &QTimer::timeout, [=] {
@@ -230,7 +223,15 @@ void BuildCaretPreview(SectionBuilder &builder) {
 			cursor.setPosition((cursor.position() == size) ? 0 : size);
 			edit->setTextCursor(cursor);
 		});
-		timer->start();
+		raw->shownValue(
+		) | rpl::on_next([=](bool shown) {
+			if (shown) {
+				field->setFocusFast();
+				timer->start();
+			} else {
+				timer->stop();
+			}
+		}, field->lifetime());
 
 		return {
 			.widget = std::move(container),
