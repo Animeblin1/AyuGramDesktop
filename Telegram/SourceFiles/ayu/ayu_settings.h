@@ -317,6 +317,7 @@ public:
 	[[nodiscard]] bool smoothCaret() const { return _smoothCaret.current(); }
 	[[nodiscard]] bool smoothScroll() const { return _smoothScroll.current(); }
 	[[nodiscard]] bool profileGradientFromAvatar() const { return _profileGradientFromAvatar.current(); }
+	[[nodiscard]] bool webAppsWindowed() const { return _webAppsWindowed.current(); }
 	[[nodiscard]] bool removeMessageTail() const { return _removeMessageTail.current(); }
 	[[nodiscard]] bool disableNotificationsDelay() const { return _disableNotificationsDelay.current(); }
 	[[nodiscard]] bool localPremium() const { return _localPremium.current(); }
@@ -411,6 +412,7 @@ public:
 	void setSmoothCaret(bool val);
 	void setSmoothScroll(bool val);
 	void setProfileGradientFromAvatar(bool val);
+	void setWebAppsWindowed(bool val);
 	void setRemoveMessageTail(bool val);
 	void setDisableNotificationsDelay(bool val);
 	void setLocalPremium(bool val);
@@ -527,10 +529,12 @@ public:
 	[[nodiscard]] rpl::producer<bool> smoothCaretValue() const { return _smoothCaret.value(); }
 	[[nodiscard]] rpl::producer<bool> smoothScrollValue() const { return _smoothScroll.value(); }
 	[[nodiscard]] rpl::producer<bool> profileGradientFromAvatarValue() const { return _profileGradientFromAvatar.value(); }
+	[[nodiscard]] rpl::producer<bool> webAppsWindowedValue() const { return _webAppsWindowed.value(); }
 	[[nodiscard]] rpl::producer<bool> materialSwitchesChanges() const { return _materialSwitches.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothCaretChanges() const { return _smoothCaret.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothScrollChanges() const { return _smoothScroll.changes(); }
 	[[nodiscard]] rpl::producer<bool> profileGradientFromAvatarChanges() const { return _profileGradientFromAvatar.changes(); }
+	[[nodiscard]] rpl::producer<bool> webAppsWindowedChanges() const { return _webAppsWindowed.changes(); }
 	[[nodiscard]] rpl::producer<bool> removeMessageTailValue() const { return _removeMessageTail.value(); }
 	[[nodiscard]] rpl::producer<bool> removeMessageTailChanges() const { return _removeMessageTail.changes(); }
 	[[nodiscard]] rpl::producer<bool> disableNotificationsDelayValue() const { return _disableNotificationsDelay.value(); }
@@ -694,6 +698,7 @@ private:
 	rpl::variable<bool> _smoothCaret = true;
 	rpl::variable<bool> _smoothScroll = true;
 	rpl::variable<bool> _profileGradientFromAvatar = true;
+	rpl::variable<bool> _webAppsWindowed = true;
 	rpl::variable<bool> _removeMessageTail = false;
 	rpl::variable<bool> _disableNotificationsDelay = false;
 	rpl::variable<bool> _localPremium = false;

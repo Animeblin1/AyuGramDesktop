@@ -1261,6 +1261,9 @@ Panel::Panel(Args &&args)
 , _fullscreen(args.fullscreen)
 , _allowClipboardRead(args.allowClipboardRead)
 , _sameOrigin(args.sameOrigin) {
+	if (AyuSettings::getInstance().webAppsWindowed()) {
+		_fullscreen = false; // AyuGram: open mini apps windowed
+	}
 	if (_externalShell) {
 		_widget->setAttribute(Qt::WA_DontShowOnScreen);
 		_externalLayer->boxAdded(
@@ -2442,7 +2445,9 @@ bool Panel::createWebview(const Webview::ThemeParams &params) {
 		} else if (command == "web_app_request_content_safe_area") {
 			sendContentSafeArea();
 		} else if (command == "web_app_request_fullscreen") {
-			if (_fullscreen.current()) {
+			if (AyuSettings::getInstance().webAppsWindowed()) {
+				sendFullScreen(); // AyuGram: refuse, report windowed state
+			} else if (_fullscreen.current()) {
 				sendFullScreen();
 			} else if (_externalShell) {
 				applyExternalShellFullscreen(true);

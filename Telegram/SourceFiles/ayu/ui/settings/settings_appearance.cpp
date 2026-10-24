@@ -216,6 +216,12 @@ void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = &AyuSettings::setProfileGradientFromAvatar,
 	});
 	ayu.addSettingToggle({
+		.id = u"ayu/webAppsWindowed"_q,
+		.title = tr::ayu_WebAppsWindowed(),
+		.getter = &AyuSettings::webAppsWindowed,
+		.setter = &AyuSettings::setWebAppsWindowed,
+	});
+	ayu.addSettingToggle({
 		.id = u"ayu/disableCustomBackgrounds"_q,
 		.altIds = { u"ayu/customThemes"_q },
 		.title = tr::ayu_DisableCustomBackgrounds(),
