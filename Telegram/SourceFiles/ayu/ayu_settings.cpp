@@ -742,6 +742,18 @@ void AyuSettings::setSelectScrollX2(bool val) {
 	save();
 }
 
+void AyuSettings::setSenderMiniAvatars(bool val) {
+	if (_senderMiniAvatars.current() == val) return;
+	_senderMiniAvatars = val;
+	save();
+}
+
+void AyuSettings::setOnlineIndicator(bool val) {
+	if (_onlineIndicator.current() == val) return;
+	_onlineIndicator = val;
+	save();
+}
+
 void AyuSettings::setRemoveMessageTail(bool val) {
 	if (_removeMessageTail.current() == val) return;
 	_removeMessageTail = val;
@@ -1215,6 +1227,8 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"scrollSpeed", s._scrollSpeed.current()},
 		{"profileGradientWholeCard", s._profileGradientWholeCard.current()},
 		{"selectScrollX2", s._selectScrollX2.current()},
+		{"senderMiniAvatars", s._senderMiniAvatars.current()},
+		{"onlineIndicator", s._onlineIndicator.current()},
 		{"removeMessageTail", s._removeMessageTail.current()},
 		{"disableNotificationsDelay", s._disableNotificationsDelay.current()},
 		{"localPremium", s._localPremium.current()},
@@ -1400,6 +1414,8 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._profileGradientFromAvatar = j.value("profileGradientFromAvatar", defaults._profileGradientFromAvatar.current());
 	s._profileGradientWholeCard = j.value("profileGradientWholeCard", defaults._profileGradientWholeCard.current());
 	s._selectScrollX2 = j.value("selectScrollX2", defaults._selectScrollX2.current());
+	s._senderMiniAvatars = j.value("senderMiniAvatars", defaults._senderMiniAvatars.current());
+	s._onlineIndicator = j.value("onlineIndicator", defaults._onlineIndicator.current());
 	s._caretSpeed = std::clamp(s._caretSpeed.current(), 0, 100);
 	s._blinkMs = std::clamp(s._blinkMs.current(), 200, 1000);
 	s._scrollSpeed = std::clamp(s._scrollSpeed.current(), 0, 100);

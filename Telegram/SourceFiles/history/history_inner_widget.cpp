@@ -1846,6 +1846,20 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
 			} else {
 				Unexpected("Corrupt forwarded information in message.");
 			}
+			if (const auto user = item->displayFrom()->asUser()) {
+				if (AyuSettings::getInstance().onlineIndicator()
+					&& Data::IsUserOnline(user, base::unixtime::now())) {
+					const auto dot = st::msgPhotoSize / 3.5;
+					const auto stroke = st::lineWidth * 2;
+					p.setPen(QPen(st::windowBg, stroke));
+					p.setBrush(st::dialogsOnlineBadgeFg);
+					p.drawEllipse(QRectF(
+						st::historyPhotoLeft + st::msgPhotoSize - dot,
+						userpicTop + st::msgPhotoSize - dot,
+						dot,
+						dot));
+				}
+			}
 			if (shift) {
 				p.translate(-shift, 0);
 			}

@@ -326,6 +326,8 @@ public:
 	[[nodiscard]] int scrollSpeed() const { return _scrollSpeed.current(); }
 	[[nodiscard]] bool profileGradientWholeCard() const { return _profileGradientWholeCard.current(); }
 	[[nodiscard]] bool selectScrollX2() const { return _selectScrollX2.current(); }
+	[[nodiscard]] bool senderMiniAvatars() const { return _senderMiniAvatars.current(); }
+	[[nodiscard]] bool onlineIndicator() const { return _onlineIndicator.current(); }
 	[[nodiscard]] bool removeMessageTail() const { return _removeMessageTail.current(); }
 	[[nodiscard]] bool disableNotificationsDelay() const { return _disableNotificationsDelay.current(); }
 	[[nodiscard]] bool localPremium() const { return _localPremium.current(); }
@@ -429,6 +431,8 @@ public:
 	void setScrollSpeed(int val);
 	void setProfileGradientWholeCard(bool val);
 	void setSelectScrollX2(bool val);
+	void setSenderMiniAvatars(bool val);
+	void setOnlineIndicator(bool val);
 	void setRemoveMessageTail(bool val);
 	void setDisableNotificationsDelay(bool val);
 	void setLocalPremium(bool val);
@@ -554,6 +558,8 @@ public:
 	[[nodiscard]] rpl::producer<int> scrollSpeedValue() const { return _scrollSpeed.value(); }
 	[[nodiscard]] rpl::producer<bool> profileGradientWholeCardValue() const { return _profileGradientWholeCard.value(); }
 	[[nodiscard]] rpl::producer<bool> selectScrollX2Value() const { return _selectScrollX2.value(); }
+	[[nodiscard]] rpl::producer<bool> senderMiniAvatarsValue() const { return _senderMiniAvatars.value(); }
+	[[nodiscard]] rpl::producer<bool> onlineIndicatorValue() const { return _onlineIndicator.value(); }
 	[[nodiscard]] rpl::producer<bool> materialSwitchesChanges() const { return _materialSwitches.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothCaretChanges() const { return _smoothCaret.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothScrollChanges() const { return _smoothScroll.changes(); }
@@ -567,6 +573,8 @@ public:
 	[[nodiscard]] rpl::producer<int> scrollSpeedChanges() const { return _scrollSpeed.changes(); }
 	[[nodiscard]] rpl::producer<bool> profileGradientWholeCardChanges() const { return _profileGradientWholeCard.changes(); }
 	[[nodiscard]] rpl::producer<bool> selectScrollX2Changes() const { return _selectScrollX2.changes(); }
+	[[nodiscard]] rpl::producer<bool> senderMiniAvatarsChanges() const { return _senderMiniAvatars.changes(); }
+	[[nodiscard]] rpl::producer<bool> onlineIndicatorChanges() const { return _onlineIndicator.changes(); }
 	[[nodiscard]] rpl::producer<bool> removeMessageTailValue() const { return _removeMessageTail.value(); }
 	[[nodiscard]] rpl::producer<bool> removeMessageTailChanges() const { return _removeMessageTail.changes(); }
 	[[nodiscard]] rpl::producer<bool> disableNotificationsDelayValue() const { return _disableNotificationsDelay.value(); }
@@ -739,6 +747,8 @@ private:
 	rpl::variable<int> _scrollSpeed = 50;
 	rpl::variable<bool> _profileGradientWholeCard = true;
 	rpl::variable<bool> _selectScrollX2 = false;
+	rpl::variable<bool> _senderMiniAvatars = false;
+	rpl::variable<bool> _onlineIndicator = false;
 	rpl::variable<bool> _removeMessageTail = false;
 	rpl::variable<bool> _disableNotificationsDelay = false;
 	rpl::variable<bool> _localPremium = false;

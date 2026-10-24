@@ -20,12 +20,16 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/custom_emoji_helper.h"
 #include "ui/text/text_options.h"
 #include "ui/text/text_utilities.h"
+#include "ui/userpic_view.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
 #include "ui/power_saving.h"
 #include "core/ui_integration.h"
 #include "lang/lang_keys.h"
 #include "lang/lang_text_entity.h"
+#include "data/data_peer_values.h"
+#include "base/unixtime.h"
+#include "ayu/ayu_settings.h"
 #include "styles/style_dialogs.h"
 
 namespace {
@@ -318,6 +322,11 @@ void MessageView::prepare(
 		DialogTextOptions(),
 		std::move(context));
 	_textCachedFor = item;
+	const auto peer = item->history()->peer;
+	const auto from = item->from();
+	_miniSender = ((from != peer) && (peer->isChat() || peer->isMegagroup()))
+		? from.get()
+		: nullptr;
 	_unreadMedia = item->isUnreadMedia();
 	_imagesCache = std::move(preview.images);
 	if (!ranges::any_of(_imagesCache, &ItemPreviewImage::hasSpoiler)) {
@@ -454,6 +463,33 @@ void MessageView::paint(
 	if (jump1) {
 		rect.setWidth(rect.width() - st::forumDialogJumpArrowSkip);
 		finalRight -= st::forumDialogJumpArrowSkip;
+	}
+	if (_miniSender && AyuSettings::getInstance().senderMiniAvatars()) {
+		const auto y = rect.y()
+			+ (st::dialogsTextFont->height - st::dialogsMiniPreview) / 2;
+		_miniSender->paintUserpic(
+			p,
+			_miniUserpic,
+			rect.x(),
+			y,
+			st::dialogsMiniPreview);
+		if (const auto user = _miniSender->asUser()) {
+			if (Data::IsUserOnline(user, base::unixtime::now())) {
+				const auto size = st::dialogsMiniPreview;
+				const auto dot = size / 3.5;
+				const auto stroke = st::lineWidth * 2;
+				p.setPen(QPen(st::windowBg, stroke));
+				p.setBrush(st::dialogsOnlineBadgeFg);
+				p.drawEllipse(QRectF(
+					rect.x() + size - dot,
+					y + size - dot,
+					dot,
+					dot));
+			}
+		}
+		rect.setLeft(rect.x()
+			+ st::dialogsMiniPreview
+			+ st::dialogsMiniPreviewRight);
 	}
 	const auto pausedSpoiler = context.paused
 		|| On(PowerSaving::kChatSpoiler);

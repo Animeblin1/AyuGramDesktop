@@ -78,6 +78,25 @@ void BuildStickersAndEmoji(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	ayu.addSectionDivider();
 }
 
+void BuildAvatars(SectionBuilder &builder, AyuSectionBuilder &ayu) {
+	builder.addSubsectionTitle(tr::ayu_AvatarsHeader());
+
+	ayu.addSettingToggle({
+		.id = u"ayu/senderMiniAvatars"_q,
+		.title = tr::ayu_MiniAvatars(),
+		.getter = &AyuSettings::senderMiniAvatars,
+		.setter = &AyuSettings::setSenderMiniAvatars,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/onlineIndicator"_q,
+		.title = tr::ayu_OnlineIndicator(),
+		.getter = &AyuSettings::onlineIndicator,
+		.setter = &AyuSettings::setOnlineIndicator,
+	});
+
+	ayu.addSectionDivider();
+}
+
 void BuildGroupsAndChannels(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	auto *settings = &AyuSettings::getInstance();
 
@@ -456,6 +475,7 @@ const auto kMeta = BuildHelper({
 
 	builder.addSkip();
 	BuildStickersAndEmoji(builder, ayu);
+	BuildAvatars(builder, ayu);
 	BuildGroupsAndChannels(builder, ayu);
 	BuildMarks(builder, ayu, previewState);
 	BuildWideMessagesMultiplier(builder, ayu, previewState);
