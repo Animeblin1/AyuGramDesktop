@@ -268,6 +268,7 @@ private:
 
 	// Ayu: last avatar photo id seen while painting the card gradient.
 	uint64 _ayuGradientPhotoId = 0;
+	int _ayuScrollTop = 0;
 
 	Ui::Controls::SwipeBackResult _swipeBackData;
 	SwipeInterceptor _swipeInterceptor;
