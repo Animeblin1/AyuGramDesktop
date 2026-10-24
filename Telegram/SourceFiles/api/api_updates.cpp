@@ -1093,6 +1093,38 @@ crl::time Updates::lastSetOnline() const {
 	return _lastSetOnline;
 }
 
+namespace {
+
+// Ayu: human text for the live-activity status line.
+[[nodiscard]] QString ActivityActionText(const MTPSendMessageAction &action) {
+	switch (action.type()) {
+	case mtpc_sendMessageTypingAction:
+		return tr::lng_typing(tr::now);
+	case mtpc_sendMessageRecordVideoAction:
+		return tr::lng_send_action_record_video(tr::now);
+	case mtpc_sendMessageUploadVideoAction:
+		return tr::lng_send_action_upload_video(tr::now);
+	case mtpc_sendMessageRecordAudioAction:
+		return tr::lng_send_action_record_audio(tr::now);
+	case mtpc_sendMessageUploadAudioAction:
+		return tr::lng_send_action_upload_audio(tr::now);
+	case mtpc_sendMessageRecordRoundAction:
+		return tr::lng_send_action_record_round(tr::now);
+	case mtpc_sendMessageUploadRoundAction:
+		return tr::lng_send_action_upload_round(tr::now);
+	case mtpc_sendMessageUploadPhotoAction:
+		return tr::lng_send_action_upload_photo(tr::now);
+	case mtpc_sendMessageUploadDocumentAction:
+		return tr::lng_send_action_upload_file(tr::now);
+	case mtpc_sendMessageChooseStickerAction:
+		return tr::lng_send_action_choose_sticker(tr::now);
+	default:
+		return QString();
+	}
+}
+
+} // namespace
+
 bool Updates::isQuitPrevent() {
 	if (!_lastWasOnline) {
 		return false;
@@ -1146,10 +1178,9 @@ void Updates::handleSendActionUpdate(
 		return;
 	}
 	Ayu::ActivityFeed::HandleSendAction(
-		session(),
 		from->asUser(),
 		peer,
-		action,
+		ActivityActionText(action),
 		when);
 	session().data().sendActionManager().registerFor(
 		history,

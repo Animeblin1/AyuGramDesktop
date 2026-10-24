@@ -12,13 +12,6 @@
 
 class PeerData;
 class UserData;
-class Main;
-
-namespace Main {
-class Session;
-} // namespace Main
-
-struct MTPSendMessageAction;
 
 namespace Ayu::ActivityFeed {
 
@@ -26,10 +19,9 @@ namespace Ayu::ActivityFeed {
 // uploading, ...) the client already receives for every chat it is a
 // member of, and exposes the freshest one per user for the status line.
 void HandleSendAction(
-	not_null<Main::Session*> session,
 	not_null<UserData*> from,
 	not_null<PeerData*> where,
-	const MTPSendMessageAction &action,
+	const QString &actionText,
 	TimeId when);
 
 // e.g. "печатает — «Chat Name»", nullopt if the user is idle.
