@@ -723,6 +723,14 @@ void AyuSettings::setScrollSpeed(int val) {
 	save();
 }
 
+void AyuSettings::setWheelScrollStep(int val) {
+	val = std::clamp(val, 50, 400);
+	if (_wheelScrollStep.current() == val) return;
+	_wheelScrollStep = val;
+	AyuUiSettings::setWheelScrollStep(val);
+	save();
+}
+
 void AyuSettings::setCaretCustomColor(unsigned int rgb) {
 	if (_caretCustomColor.current() == rgb) return;
 	_caretCustomColor = rgb;
@@ -1231,6 +1239,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"caretAccent", s._caretAccent.current()},
 		{"caretCustomColor", s._caretCustomColor.current()},
 		{"scrollSpeed", s._scrollSpeed.current()},
+		{"wheelScrollStep", s._wheelScrollStep.current()},
 		{"profileGradientWholeCard", s._profileGradientWholeCard.current()},
 		{"selectScrollX2", s._selectScrollX2.current()},
 		{"senderMiniAvatars", s._senderMiniAvatars.current()},
@@ -1418,6 +1427,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._caretAccent = j.value("caretAccent", defaults._caretAccent.current());
 	s._caretCustomColor = j.value("caretCustomColor", defaults._caretCustomColor.current());
 	s._scrollSpeed = j.value("scrollSpeed", defaults._scrollSpeed.current());
+	s._wheelScrollStep = j.value("wheelScrollStep", defaults._wheelScrollStep.current());
 	s._profileGradientFromAvatar = j.value("profileGradientFromAvatar", defaults._profileGradientFromAvatar.current());
 	s._profileGradientWholeCard = j.value("profileGradientWholeCard", defaults._profileGradientWholeCard.current());
 	s._selectScrollX2 = j.value("selectScrollX2", defaults._selectScrollX2.current());
@@ -1427,6 +1437,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._caretSpeed = std::clamp(s._caretSpeed.current(), 0, 100);
 	s._blinkMs = std::clamp(s._blinkMs.current(), 200, 1000);
 	s._scrollSpeed = std::clamp(s._scrollSpeed.current(), 0, 100);
+	s._wheelScrollStep = std::clamp(s._wheelScrollStep.current(), 50, 400);
 	s._singleCornerRadius = j.value("singleCornerRadius", defaults._singleCornerRadius.current());
 	s._streamerMode = j.value("streamerMode", defaults._streamerMode.current());
 

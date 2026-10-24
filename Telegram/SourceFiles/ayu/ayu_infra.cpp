@@ -42,6 +42,7 @@ void initUiSettings() {
 	AyuUiSettings::setCaretAccent(settings.caretAccent());
 	AyuUiSettings::setCaretCustomColor(settings.caretCustomColor());
 	AyuUiSettings::setScrollSmoothSpeed(settings.scrollSpeed());
+	AyuUiSettings::setWheelScrollStep(settings.wheelScrollStep());
 	Ui::SetAppliedBubbleRadius(settings.messageBubbleRadius());
 }
 
