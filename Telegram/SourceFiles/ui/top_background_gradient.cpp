@@ -310,6 +310,15 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 	if (!settings.profileGradientFromAvatar()) {
 		return std::nullopt;
 	}
+	// Ayu: service chats (Saved Messages, My Notes, Replies, Verify
+	// Codes, hidden authors) must never get an avatar-derived gradient.
+	if (peer->isSelf()
+		|| peer->isRepliesChat()
+		|| peer->isVerifyCodes()
+		|| peer->isNotificationsUser()
+		|| peer->isSavedHiddenAuthor()) {
+		return std::nullopt;
+	}
 	const auto key = ((quint64(peer->id.value) << 24)
 		^ quint64(peer->userpicPhotoId()));
 	static auto cached = base::flat_map<quint64, AvatarGradient>();
