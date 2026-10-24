@@ -671,6 +671,12 @@ void AyuSettings::setSmoothCaret(bool val) {
 	AyuUiSettings::setSmoothCaret(val);
 	save();
 }
+void AyuSettings::setSmoothScroll(bool val) {
+	if (_smoothScroll.current() == val) return;
+	_smoothScroll = val;
+	AyuUiSettings::setSmoothScroll(val);
+	save();
+}
 
 void AyuSettings::setRemoveMessageTail(bool val) {
 	if (_removeMessageTail.current() == val) return;
@@ -1134,6 +1140,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"increaseWebviewWidth", s._increaseWebviewWidth.current()},
 		{"materialSwitches", s._materialSwitches.current()},
 		{"smoothCaret", s._smoothCaret.current()},
+		{"smoothScroll", s._smoothScroll.current()},
 		{"removeMessageTail", s._removeMessageTail.current()},
 		{"disableNotificationsDelay", s._disableNotificationsDelay.current()},
 		{"localPremium", s._localPremium.current()},
