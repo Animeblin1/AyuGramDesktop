@@ -9470,6 +9470,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_MaterialSwitches" = "MD3 Switch Style";
 "ayu_SmoothCaret" = "Animated Caret";
 "ayu_SmoothCaretDescription" = "Caret slides smoothly between keys, like in Claude Code";
+"ayu_CaretStudioHeader" = "Caret & Scrolling Studio";
+"ayu_CaretPreviewLabel" = "Preview - type here or wait for the demo";
+"ayu_CaretColor" = "Caret Color";
+"ayu_CaretColorAuto" = "Auto";
+"ayu_CaretReset" = "Reset Caret Settings";
+"ayu_ProfileGradientWholeCard" = "Profile Gradient on Whole Card";
+"ayu_SelectionScrollX2" = "Selection Edge-Scroll x2 (off: x1.5)";
 "ayu_RemoveMessageTail" = "Remove Message Tail";
 "ayu_HideShareButton" = "Hide Side \"Share\" Button";
 "ayu_ChatFoldersHeader" = "Chat Folders";

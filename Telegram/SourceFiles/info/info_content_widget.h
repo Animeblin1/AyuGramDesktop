@@ -266,6 +266,9 @@ private:
 	// To paint round edges from content.
 	style::margins _paintPadding;
 
+	// Ayu: last avatar photo id seen while painting the card gradient.
+	uint64 _ayuGradientPhotoId = 0;
+
 	Ui::Controls::SwipeBackResult _swipeBackData;
 	SwipeInterceptor _swipeInterceptor;
 	rpl::lifetime _swipeHandlerLifetime;

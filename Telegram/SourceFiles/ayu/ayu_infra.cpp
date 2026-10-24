@@ -36,6 +36,12 @@ void initUiSettings() {
 	AyuUiSettings::setSmoothCaret(settings.smoothCaret());
 	AyuUiSettings::setSmoothScroll(settings.smoothScroll());
 	AyuUiSettings::setAvatarCorners(settings.avatarCorners());
+	AyuUiSettings::setCaretSpeed(settings.caretSpeed());
+	AyuUiSettings::setCaretBlink(settings.caretBlink());
+	AyuUiSettings::setBlinkMs(settings.blinkMs());
+	AyuUiSettings::setCaretAccent(settings.caretAccent());
+	AyuUiSettings::setCaretCustomColor(settings.caretCustomColor());
+	AyuUiSettings::setScrollSmoothSpeed(settings.scrollSpeed());
 	Ui::SetAppliedBubbleRadius(settings.messageBubbleRadius());
 }
 

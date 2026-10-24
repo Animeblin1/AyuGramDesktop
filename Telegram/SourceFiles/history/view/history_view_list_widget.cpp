@@ -9,7 +9,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "history/view/history_view_about_view.h"
 #include "base/unixtime.h"
+#include "base/algorithm.h"
 #include "base/qt/qt_key_modifiers.h"
+
+#include <cmath>
 #include "base/qt/qt_common_adapters.h"
 #include "history/history.h"
 #include "history/history_item.h"
@@ -108,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/features/filters/filters_cache_controller.h"
+#include "ayu/ayu_settings.h"
 #include "ayu/utils/telegram_helpers.h"
 
 
@@ -766,7 +770,20 @@ ListWidget::ListWidget(
 
 	_selectScroll.scrolls(
 	) | rpl::on_next([=](int d) {
-		delegate->listScrollTo(_visibleTop + d, false);
+		// Ayu: gradual acceleration of the selection edge-scroll from
+		// the stock speed up to x1.5 / x2 (setting). Holding the cursor
+		// at the edge keeps the reached speed, like in stock Telegram.
+		const auto boost = AyuSettings::getInstance().selectScrollX2()
+			? 2.0
+			: 1.5;
+		if (_selectBoostSpeed == 0.
+			|| base::OppositeSigns(_selectBoostSpeed, double(d))) {
+			_selectBoostSpeed = d;
+		}
+		_selectBoostSpeed += (d * boost - _selectBoostSpeed) * 0.10;
+		delegate->listScrollTo(
+			_visibleTop + int(std::lround(_selectBoostSpeed)),
+			false);
 	}, lifetime());
 }
 
@@ -5339,12 +5356,25 @@ void ListWidget::mouseActionUpdate() {
 	}
 
 	if (_mouseAction == MouseAction::Selecting) {
+		// Ayu: reset the boosted edge-scroll speed when the gesture
+		// leaves the edge or reverses.
+		const auto diff = (mousePosition.y() < _visibleTop)
+			? double(mousePosition.y() - _visibleTop)
+			: (mousePosition.y() >= _visibleBottom)
+			? double(mousePosition.y() - _visibleBottom + 1)
+			: 0.;
+		if (diff == 0.
+			|| (_selectBoostSpeed != 0.
+				&& base::OppositeSigns(diff, _selectBoostSpeed))) {
+			_selectBoostSpeed = 0.;
+		}
 		_selectScroll.checkDeltaScroll(
 			mousePosition,
 			_visibleTop,
 			_visibleBottom);
 	} else {
 		_selectScroll.cancel();
+		_selectBoostSpeed = 0.;
 	}
 }
 
