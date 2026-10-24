@@ -511,6 +511,13 @@ TopBar::TopBar(
 	) | rpl::on_next([=] {
 		update();
 	}, lifetime());
+	Ui::ProfileGradientScrollEvents(
+	) | rpl::filter([=](const Ui::ProfileGradientScroll &event) {
+		return event.peerBareId == _peer->id.value;
+	}) | rpl::on_next([=](const Ui::ProfileGradientScroll &event) {
+		_ayuGradientFade = Ui::ProfileGradientFadeFor(event.top);
+		update();
+	}, lifetime());
 	if (_hasBalance) {
 		const auto user = _peer->asUser();
 		_balancePill = std::make_unique<BalancePill>(
@@ -3007,59 +3014,71 @@ void TopBar::paintEvent(QPaintEvent *e) {
 		const auto y = (height()
 			- _cachedGradient.height() / style::DevicePixelRatio())
 				/ 2;
-		// Ayu: soften the bottom edge of the bar gradient. With the
-		// whole-card gradient enabled it melts into the same flat color
-		// that the card continues with, otherwise it fades out into the
-		// plain background - no hard cut either way.
-		const auto ayuColors = Ui::AvatarGradientColorsFor(_peer);
-		const auto toFlat = ayuColors.has_value()
-			&& AyuSettings::getInstance().profileGradientWholeCard();
-		const auto flatColor = toFlat ? ayuColors->second : QColor();
-		const auto band = std::min(
-			height(),
-			int(style::ConvertScale(46)));
-		const auto rows = std::max((band + 1) / 2, 1);
-		const auto mainRect = QRect(0, 0, width(), std::max(0, height() - band));
-		const auto paintBand = [&] {
-			for (auto i = 0; i != rows; ++i) {
-				const auto rowTop = height() - band + i * 2;
-				const auto rowH = std::min(2, height() - rowTop);
-				if (rowH <= 0) {
-					break;
-				}
-				const auto row = QRect(0, rowTop, width(), rowH);
-				const auto k = float(i + 1) / rows;
-				p.save();
-				p.setClipRect(row, Qt::IntersectClip);
-				p.setOpacity(1. - k);
-				p.drawImage(x, y, _cachedGradient);
-				if (toFlat) {
-					p.setOpacity(k);
-					p.fillRect(row, flatColor);
-				}
-				p.restore();
-			}
-		};
-		if (clipTouchesRoundedCorners(clipBounds)) {
-			if (_cachedClipPath.isEmpty()) {
-				const auto radius = st::boxRadius;
-				_cachedClipPath.addRoundedRect(
-					rect() + QMargins{ 0, 0, 0, radius + 1 },
-					radius,
-					radius);
-			}
-			auto hq = PainterHighQualityEnabler(p);
-			p.setPen(Qt::NoPen);
-			p.setClipPath(_cachedClipPath);
-			p.setClipRect(mainRect, Qt::IntersectClip);
-			p.drawImage(x, y, _cachedGradient);
-			paintBand();
-			p.setClipPath(_cachedClipPath);
+		// Ayu: the gradient dissolves as the profile is scrolled down
+		// (in sync with the whole-card gradient behind the content).
+		// With the whole-card gradient on, the bar simply melts into the
+		// same color the card starts with; otherwise the bottom edge
+		// softly fades into the plain background.
+		const auto g = _ayuGradientFade;
+		if (g <= 0.) {
+			paintEdges(p, clipBounds);
 		} else {
-			p.setClipRect(mainRect);
-			p.drawImage(x, y, _cachedGradient);
-			paintBand();
-			p.setClipping(false);
+			const auto ayuColors = Ui::AvatarGradientColorsFor(_peer);
+			const auto wholeCard = ayuColors.has_value()
+				&& AyuSettings::getInstance().profileGradientWholeCard();
+			const auto band = (!wholeCard && g >= 0.99)
+				? std::min(height(), int(style::ConvertScale(46)))
+				: 0;
+			const auto rows = std::max((band + 1) / 2, 1);
+			const auto mainRect = QRect(
+				0,
+				0,
+				width(),
+				std::max(0, height() - band));
+			const auto paintBand = [&] {
+				for (auto i = 0; i != rows; ++i) {
+					const auto rowTop = height() - band + i * 2;
+					const auto rowH = std::min(2, height() - rowTop);
+					if (rowH <= 0) {
+						break;
+					}
+					const auto row = QRect(0, rowTop, width(), rowH);
+					const auto k = float(i + 1) / rows;
+					p.save();
+					p.setClipRect(row, Qt::IntersectClip);
+					p.setOpacity(g * (1. - k));
+					p.drawImage(x, y, _cachedGradient);
+					p.restore();
+				}
+			};
+			if (clipTouchesRoundedCorners(clipBounds)) {
+				if (_cachedClipPath.isEmpty()) {
+					const auto radius = st::boxRadius;
+					_cachedClipPath.addRoundedRect(
+						rect() + QMargins{ 0, 0, 0, radius + 1 },
+						radius,
+						radius);
+				}
+				auto hq = PainterHighQualityEnabler(p);
+				p.setPen(Qt::NoPen);
+				p.setClipPath(_cachedClipPath);
+				p.setOpacity(g);
+				p.drawImage(x, y, _cachedGradient);
+				p.setOpacity(1.);
+				if (band) {
+					paintBand();
+					p.setClipPath(_cachedClipPath);
+				}
+			} else {
+				p.setClipRect(mainRect);
+				p.setOpacity(g);
+				p.drawImage(x, y, _cachedGradient);
+				p.setOpacity(1.);
+				if (band) {
+					paintBand();
+				}
+				p.setClipping(false);
+			}
 		}
 	}
 	if (_patternEmoji && _patternEmoji->ready()) {

@@ -327,6 +327,7 @@ private:
 	std::optional<QColor> _solidBg;
 	QImage _cachedGradient;
 	QPainterPath _cachedClipPath;
+	float _ayuGradientFade = 1.;
 	std::unique_ptr<Ui::Text::CustomEmoji> _patternEmoji;
 	QImage _basePatternImage;
 
