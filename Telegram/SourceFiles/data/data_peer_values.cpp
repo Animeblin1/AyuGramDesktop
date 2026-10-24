@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ayu_settings.h"
+#include "ayu/features/activity/activity_feed.h"
 
 
 namespace Data {
@@ -528,12 +529,18 @@ QString OnlineText(not_null<UserData*> user, TimeId now) {
 	if (const auto special = OnlineTextSpecial(user)) {
 		return *special;
 	}
+	if (const auto activity = Ayu::ActivityFeed::CurrentActivity(user)) {
+		return *activity;
+	}
 	return OnlineText(user->lastseen(), now);
 }
 
 QString OnlineTextFull(not_null<UserData*> user, TimeId now) {
 	if (const auto special = OnlineTextSpecial(user)) {
 		return *special;
+	} else if (const auto activity
+		= Ayu::ActivityFeed::CurrentActivity(user)) {
+		return *activity;
 	} else if (const auto common = OnlineTextCommon(user->lastseen(), now)) {
 		return *common;
 	}

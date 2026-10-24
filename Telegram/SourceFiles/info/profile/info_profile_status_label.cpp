@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "lang/lang_keys.h"
+#include "ayu/features/activity/activity_feed.h"
 #include "main/main_session.h"
 #include "ui/widgets/labels.h"
 #include "ui/text/text_utilities.h"
@@ -115,6 +116,12 @@ StatusLabel::StatusLabel(
 			refresh();
 		}, _lifetime);
 	}
+	// Ayu: live user activity ("typing — «Chat»") replaces the usual
+	// status, subscribe to its changes.
+	Ayu::ActivityFeed::ActivityChanged(
+	) | rpl::on_next([=] {
+		refresh();
+	}, _lifetime);
 }
 
 void StatusLabel::setOnlineCount(int count) {
@@ -145,8 +152,11 @@ void StatusLabel::refresh() {
 			const auto updateIn = Data::OnlineChangeTimeout(
 				user,
 				currentTime);
-			if (showOnline) {
-				_refreshTimer.callOnce(updateIn);
+			if (showOnline
+				|| Ayu::ActivityFeed::CurrentActivity(user)) {
+				// Re-evaluate the activity text soon - it expires and
+				// changes as the user keeps typing in shared chats.
+				_refreshTimer.callOnce(2000);
 			}
 			return MaybeHiddenPrefixed(
 				(showOnline && _colorized)
