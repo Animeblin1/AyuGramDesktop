@@ -226,7 +226,9 @@ jobs:
       - name: Strip unused library files
         shell: bash
         run: |
-          find "$TBUILD/Libraries/win64" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+          # '*/out/src/*' keeps generated sources CMake needs at configure
+          # time (e.g. tdesktop_rust/out/src/wallet_engine/wallet_engine.cpp).
+          find "$TBUILD/Libraries/win64" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/out/src/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
           # The disk is what a from-source build runs into, and
           # the step summary needs a login to read.
           df -h
