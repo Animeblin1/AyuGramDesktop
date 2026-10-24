@@ -10,6 +10,10 @@ on:
         description: Rebuild number of an already released version, for example 2 publishes v7.2.9-2
         required: false
         default: ''
+      skip_linux:
+        description: 'true = build Windows only, skip the Linux job'
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -57,7 +61,7 @@ jobs:
           REVISION: ${{ inputs.revision }}
         run: |
           version=$(awk '$1 == "AppVersionStr" { print $2 }' Telegram/build/version)
-          test "$REF" = "codex/ayu-$version"
+          test "$REF" = "codex/ayu-$version" || test "$REF" = "codex/ayu-$version-win"
           test "$(awk '$1 == "AppVersionOriginal" { print $2 }' Telegram/build/version)" = "$version"
           test "$(awk '$1 == "BetaChannel" { print $2 }' Telegram/build/version)" = 0
           test "$(awk '$1 == "AlphaVersion" { print $2 }' Telegram/build/version)" = 0
@@ -407,6 +411,7 @@ jobs:
 
   linux:
     name: Linux x86_64 Release
+    if: inputs.skip_linux != 'true'
     needs: validate
     runs-on: ubuntu-24.04
     timeout-minutes: 350
