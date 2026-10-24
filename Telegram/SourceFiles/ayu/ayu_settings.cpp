@@ -723,6 +723,25 @@ void AyuSettings::setScrollSpeed(int val) {
 	save();
 }
 
+void AyuSettings::setCaretCustomColor(unsigned int rgb) {
+	if (_caretCustomColor.current() == rgb) return;
+	_caretCustomColor = rgb;
+	AyuUiSettings::setCaretCustomColor(rgb);
+	save();
+}
+
+void AyuSettings::setProfileGradientWholeCard(bool val) {
+	if (_profileGradientWholeCard.current() == val) return;
+	_profileGradientWholeCard = val;
+	save();
+}
+
+void AyuSettings::setSelectScrollX2(bool val) {
+	if (_selectScrollX2.current() == val) return;
+	_selectScrollX2 = val;
+	save();
+}
+
 void AyuSettings::setRemoveMessageTail(bool val) {
 	if (_removeMessageTail.current() == val) return;
 	_removeMessageTail = val;
@@ -1192,7 +1211,10 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"caretBlink", s._caretBlink.current()},
 		{"blinkMs", s._blinkMs.current()},
 		{"caretAccent", s._caretAccent.current()},
+		{"caretCustomColor", s._caretCustomColor.current()},
 		{"scrollSpeed", s._scrollSpeed.current()},
+		{"profileGradientWholeCard", s._profileGradientWholeCard.current()},
+		{"selectScrollX2", s._selectScrollX2.current()},
 		{"removeMessageTail", s._removeMessageTail.current()},
 		{"disableNotificationsDelay", s._disableNotificationsDelay.current()},
 		{"localPremium", s._localPremium.current()},
@@ -1373,7 +1395,11 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._caretBlink = j.value("caretBlink", defaults._caretBlink.current());
 	s._blinkMs = j.value("blinkMs", defaults._blinkMs.current());
 	s._caretAccent = j.value("caretAccent", defaults._caretAccent.current());
+	s._caretCustomColor = j.value("caretCustomColor", defaults._caretCustomColor.current());
 	s._scrollSpeed = j.value("scrollSpeed", defaults._scrollSpeed.current());
+	s._profileGradientFromAvatar = j.value("profileGradientFromAvatar", defaults._profileGradientFromAvatar.current());
+	s._profileGradientWholeCard = j.value("profileGradientWholeCard", defaults._profileGradientWholeCard.current());
+	s._selectScrollX2 = j.value("selectScrollX2", defaults._selectScrollX2.current());
 	s._caretSpeed = std::clamp(s._caretSpeed.current(), 0, 100);
 	s._blinkMs = std::clamp(s._blinkMs.current(), 200, 1000);
 	s._scrollSpeed = std::clamp(s._scrollSpeed.current(), 0, 100);

@@ -1079,6 +1079,7 @@ private:
 	base::Timer _touchSelectTimer;
 
 	Ui::DraggingScrollManager _selectScroll;
+	double _selectBoostSpeed = 0.;
 
 	InfoTooltip _topToast;
 	AnchoredTooltip _hiddenSenderTooltip;

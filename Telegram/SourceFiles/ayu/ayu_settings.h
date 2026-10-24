@@ -322,7 +322,10 @@ public:
 	[[nodiscard]] bool caretBlink() const { return _caretBlink.current(); }
 	[[nodiscard]] int blinkMs() const { return _blinkMs.current(); }
 	[[nodiscard]] bool caretAccent() const { return _caretAccent.current(); }
+	[[nodiscard]] unsigned int caretCustomColor() const { return _caretCustomColor.current(); }
 	[[nodiscard]] int scrollSpeed() const { return _scrollSpeed.current(); }
+	[[nodiscard]] bool profileGradientWholeCard() const { return _profileGradientWholeCard.current(); }
+	[[nodiscard]] bool selectScrollX2() const { return _selectScrollX2.current(); }
 	[[nodiscard]] bool removeMessageTail() const { return _removeMessageTail.current(); }
 	[[nodiscard]] bool disableNotificationsDelay() const { return _disableNotificationsDelay.current(); }
 	[[nodiscard]] bool localPremium() const { return _localPremium.current(); }
@@ -422,7 +425,10 @@ public:
 	void setCaretBlink(bool val);
 	void setBlinkMs(int val);
 	void setCaretAccent(bool val);
+	void setCaretCustomColor(unsigned int rgb);
 	void setScrollSpeed(int val);
+	void setProfileGradientWholeCard(bool val);
+	void setSelectScrollX2(bool val);
 	void setRemoveMessageTail(bool val);
 	void setDisableNotificationsDelay(bool val);
 	void setLocalPremium(bool val);
@@ -544,7 +550,10 @@ public:
 	[[nodiscard]] rpl::producer<bool> caretBlinkValue() const { return _caretBlink.value(); }
 	[[nodiscard]] rpl::producer<int> blinkMsValue() const { return _blinkMs.value(); }
 	[[nodiscard]] rpl::producer<bool> caretAccentValue() const { return _caretAccent.value(); }
+	[[nodiscard]] rpl::producer<unsigned int> caretCustomColorValue() const { return _caretCustomColor.value(); }
 	[[nodiscard]] rpl::producer<int> scrollSpeedValue() const { return _scrollSpeed.value(); }
+	[[nodiscard]] rpl::producer<bool> profileGradientWholeCardValue() const { return _profileGradientWholeCard.value(); }
+	[[nodiscard]] rpl::producer<bool> selectScrollX2Value() const { return _selectScrollX2.value(); }
 	[[nodiscard]] rpl::producer<bool> materialSwitchesChanges() const { return _materialSwitches.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothCaretChanges() const { return _smoothCaret.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothScrollChanges() const { return _smoothScroll.changes(); }
@@ -554,7 +563,10 @@ public:
 	[[nodiscard]] rpl::producer<bool> caretBlinkChanges() const { return _caretBlink.changes(); }
 	[[nodiscard]] rpl::producer<int> blinkMsChanges() const { return _blinkMs.changes(); }
 	[[nodiscard]] rpl::producer<bool> caretAccentChanges() const { return _caretAccent.changes(); }
+	[[nodiscard]] rpl::producer<unsigned int> caretCustomColorChanges() const { return _caretCustomColor.changes(); }
 	[[nodiscard]] rpl::producer<int> scrollSpeedChanges() const { return _scrollSpeed.changes(); }
+	[[nodiscard]] rpl::producer<bool> profileGradientWholeCardChanges() const { return _profileGradientWholeCard.changes(); }
+	[[nodiscard]] rpl::producer<bool> selectScrollX2Changes() const { return _selectScrollX2.changes(); }
 	[[nodiscard]] rpl::producer<bool> removeMessageTailValue() const { return _removeMessageTail.value(); }
 	[[nodiscard]] rpl::producer<bool> removeMessageTailChanges() const { return _removeMessageTail.changes(); }
 	[[nodiscard]] rpl::producer<bool> disableNotificationsDelayValue() const { return _disableNotificationsDelay.value(); }
@@ -723,7 +735,10 @@ private:
 	rpl::variable<bool> _caretBlink = true;
 	rpl::variable<int> _blinkMs = 500;
 	rpl::variable<bool> _caretAccent = false;
+	rpl::variable<unsigned int> _caretCustomColor = 0;
 	rpl::variable<int> _scrollSpeed = 50;
+	rpl::variable<bool> _profileGradientWholeCard = true;
+	rpl::variable<bool> _selectScrollX2 = false;
 	rpl::variable<bool> _removeMessageTail = false;
 	rpl::variable<bool> _disableNotificationsDelay = false;
 	rpl::variable<bool> _localPremium = false;

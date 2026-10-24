@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_content_widget.h"
 
 #include "api/api_who_reacted.h"
+#include "ayu/ayu_settings.h"
 #include "boxes/peer_list_box.h"
 #include "data/data_chat.h"
 #include "data/data_channel.h"
@@ -29,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "menu/menu_send.h"
 #include "ui/controls/swipe_handler.h"
+#include "ui/top_background_gradient.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/wrap/padding_wrap.h"
@@ -103,6 +105,21 @@ ContentWidget::ContentWidget(
 		) | rpl::on_next([this](bool shown) {
 			refreshSearchField(shown);
 		}, lifetime());
+	} else {
+		// Ayu: repaint the card gradient once the avatar photo loads,
+		// and when the gradient-extent setting is toggled.
+		AyuSettings::getInstance().profileGradientWholeCardValue(
+		) | rpl::on_next([this](bool) {
+			update();
+		}, lifetime());
+		_controller->peer()->session().downloaderTaskFinished(
+		) | rpl::on_next([this] {
+			const auto photoId = _controller->peer()->userpicPhotoId();
+			if (_ayuGradientPhotoId != photoId) {
+				_ayuGradientPhotoId = photoId;
+				update();
+			}
+		}, lifetime());
 	}
 	rpl::merge(
 		_scrollTopSkip.changes(),
@@ -159,16 +176,45 @@ bool ContentWidget::isStackBottom() const {
 
 void ContentWidget::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
+	const auto r = e->rect();
 	if (_paintPadding.isNull()) {
-		p.fillRect(e->rect(), _bg);
+		p.fillRect(r, _bg);
 	} else {
-		const auto &r = e->rect();
+		const auto &rectSide = r;
 		const auto padding = QMargins(
 			0,
-			std::min(0, (r.top() - _paintPadding.top())),
+			std::min(0, (rectSide.top() - _paintPadding.top())),
 			0,
-			std::min(0, (r.bottom() - _paintPadding.bottom())));
-		p.fillRect(r + padding, _bg);
+			std::min(0, (rectSide.bottom() - _paintPadding.bottom())));
+		p.fillRect(rectSide + padding, _bg);
+	}
+	// Ayu: extend the avatar gradient from the profile top bar over the
+	// whole card: strongest at the top, smoothly fading into the usual
+	// background lower down. Can be limited back to the top bar only.
+	if (_controller->section().type() == Section::Type::Profile
+		&& AyuSettings::getInstance().profileGradientWholeCard()) {
+		if (const auto colors = AvatarGradientColorsFor(
+				_controller->peer())) {
+			const auto fade = std::clamp(
+				int(height() * 0.6),
+				300,
+				700);
+			if (r.top() < fade) {
+				auto top = colors->second;
+				top.setAlpha(185);
+				auto center = colors->first;
+				center.setAlpha(120);
+				auto low = colors->first;
+				low.setAlpha(0);
+				auto g = QLinearGradient(0, 0, 0, fade);
+				g.setColorAt(0.0, top);
+				g.setColorAt(0.4, center);
+				g.setColorAt(1.0, low);
+				p.fillRect(
+					QRect(0, 0, width(), std::min(r.bottom() + 1, fade)),
+					QBrush(g));
+			}
+		}
 	}
 }
 

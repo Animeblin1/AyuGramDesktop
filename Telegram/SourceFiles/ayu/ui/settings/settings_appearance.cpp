@@ -26,10 +26,14 @@
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
 #include "ui/painter.h"
+#include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
+
+#include <QtCore/QTimer>
+#include <QtWidgets/QColorDialog>
 
 namespace Settings {
 
@@ -185,41 +189,67 @@ void BuildAvatarCorners(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	builder.addSkip();
 }
 
-void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
+void BuildCaretPreview(SectionBuilder &builder) {
+	builder.add([=](const WidgetContext &ctx) -> SectionBuilder::WidgetToAdd {
+		auto container = object_ptr<Ui::RpWidget>(ctx.container);
+		const auto raw = container.data();
+		const auto pad = st::settingsButtonNoIcon.padding;
+		raw->setFixedHeight(
+			pad.top() + st::defaultInputField.heightMin + pad.bottom());
+
+		const auto field = Ui::CreateChild<Ui::InputField>(
+			raw,
+			st::defaultInputField,
+			tr::ayu_CaretPreviewLabel(),
+			QString("Hello, smooth caret! abcdefg ABCDEFG 01234"));
+		raw->sizeValue(
+		) | rpl::on_next([=](QSize size) {
+			field->setGeometry(
+				pad.left(),
+				pad.top(),
+				size.width() - pad.left() - pad.right(),
+				st::defaultInputField.heightMin);
+		}, field->lifetime());
+
+		raw->shownValue(
+		) | rpl::filter([=](bool shown) {
+			return shown;
+		}) | rpl::take(1) | rpl::on_next([=] {
+			field->setFocusFast();
+		}, field->lifetime());
+
+		// Demo: glide the caret between the ends when idle.
+		const auto toEnd = Ui::CreateChild<QObject>(raw);
+		const auto timer = new QTimer(raw);
+		timer->setInterval(1800);
+		QObject::connect(timer, &QTimer::timeout, [=] {
+			const auto edit = field->rawTextEdit();
+			auto cursor = edit->textCursor();
+			const auto size = edit->toPlainText().size();
+			cursor.setPosition((cursor.position() == size) ? 0 : size);
+			edit->setTextCursor(cursor);
+		});
+		timer->start();
+
+		return {
+			.widget = std::move(container),
+			.margin = st::settingsButtonNoIcon.padding,
+		};
+	});
+}
+
+void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	auto *settings = &AyuSettings::getInstance();
 
-	builder.addSubsectionTitle(tr::ayu_CategoryAppearance());
+	builder.addSubsectionTitle(tr::ayu_CaretStudioHeader());
 
-	ayu.addSettingToggle({
-		.id = u"ayu/materialSwitches"_q,
-		.altIds = { u"ayu/newSwitchStyle"_q },
-		.title = tr::ayu_MaterialSwitches(),
-		.getter = &AyuSettings::materialSwitches,
-		.setter = &AyuSettings::setMaterialSwitches,
-	});
+	BuildCaretPreview(builder);
+
 	ayu.addSettingToggle({
 		.id = u"ayu/smoothCaret"_q,
 		.title = tr::ayu_SmoothCaret(),
 		.getter = &AyuSettings::smoothCaret,
 		.setter = &AyuSettings::setSmoothCaret,
-	});
-	ayu.addSettingToggle({
-		.id = u"ayu/smoothScroll"_q,
-		.title = tr::ayu_SmoothScroll(),
-		.getter = &AyuSettings::smoothScroll,
-		.setter = &AyuSettings::setSmoothScroll,
-	});
-	ayu.addSettingToggle({
-		.id = u"ayu/profileGradientFromAvatar"_q,
-		.title = tr::ayu_ProfileGradientFromAvatar(),
-		.getter = &AyuSettings::profileGradientFromAvatar,
-		.setter = &AyuSettings::setProfileGradientFromAvatar,
-	});
-	ayu.addSettingToggle({
-		.id = u"ayu/webAppsWindowed"_q,
-		.title = tr::ayu_WebAppsWindowed(),
-		.getter = &AyuSettings::webAppsWindowed,
-		.setter = &AyuSettings::setWebAppsWindowed,
 	});
 	ayu.addSettingToggle({
 		.id = u"ayu/caretBlink"_q,
@@ -251,6 +281,47 @@ void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.getter = &AyuSettings::caretAccent,
 		.setter = &AyuSettings::setCaretAccent,
 	});
+
+	builder.addButton({
+		.id = u"ayu/caretColor"_q,
+		.title = tr::ayu_CaretColor(),
+		.st = &st::settingsButtonNoIcon,
+		.label = rpl::single(settings->caretCustomColor()
+			? (QString(u"#") + QString::number(
+				settings->caretCustomColor() & 0xFFFFFFu,
+				16).right(6).toUpper())
+			: tr::ayu_CaretColorAuto(tr::now)),
+		.onClick = [=] {
+			const auto initial = settings->caretCustomColor()
+				? QColor::fromRgb(settings->caretCustomColor() & 0xFFFFFFu)
+				: QColor(0, 122, 255);
+			const auto result = QColorDialog::getColor(
+				initial,
+				nullptr,
+				tr::ayu_CaretColor(tr::now));
+			if (result.isValid()) {
+				AyuSettings::getInstance().setCaretCustomColor(
+					unsigned(result.rgb() & 0xFFFFFFu));
+			}
+		},
+	});
+
+	builder.addButton({
+		.id = u"ayu/caretReset"_q,
+		.title = tr::ayu_CaretReset(),
+		.st = &st::settingsButtonNoIcon,
+		.label = rpl::single(tr::ayu_CaretReset(tr::now)),
+		.onClick = [=] {
+			auto &s = AyuSettings::getInstance();
+			s.setCaretSpeed(50);
+			s.setCaretBlink(true);
+			s.setBlinkMs(500);
+			s.setCaretAccent(false);
+			s.setCaretCustomColor(0);
+			s.setScrollSpeed(50);
+		},
+	});
+
 	ayu.addSlider({
 		.id = u"ayu/scrollSpeedSlider"_q,
 		.title = tr::ayu_ScrollSmoothness(),
@@ -259,6 +330,53 @@ void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setScrollSpeed(val);
 		},
+	});
+
+	builder.addSkip();
+}
+
+void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
+	auto *settings = &AyuSettings::getInstance();
+
+	builder.addSubsectionTitle(tr::ayu_CategoryAppearance());
+
+	ayu.addSettingToggle({
+		.id = u"ayu/materialSwitches"_q,
+		.altIds = { u"ayu/newSwitchStyle"_q },
+		.title = tr::ayu_MaterialSwitches(),
+		.getter = &AyuSettings::materialSwitches,
+		.setter = &AyuSettings::setMaterialSwitches,
+	});
+	BuildCaretStudio(builder, ayu);
+	ayu.addSettingToggle({
+		.id = u"ayu/smoothScroll"_q,
+		.title = tr::ayu_SmoothScroll(),
+		.getter = &AyuSettings::smoothScroll,
+		.setter = &AyuSettings::setSmoothScroll,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/profileGradientFromAvatar"_q,
+		.title = tr::ayu_ProfileGradientFromAvatar(),
+		.getter = &AyuSettings::profileGradientFromAvatar,
+		.setter = &AyuSettings::setProfileGradientFromAvatar,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/profileGradientWholeCard"_q,
+		.title = tr::ayu_ProfileGradientWholeCard(),
+		.getter = &AyuSettings::profileGradientWholeCard,
+		.setter = &AyuSettings::setProfileGradientWholeCard,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/selectScrollX2"_q,
+		.title = tr::ayu_SelectionScrollX2(),
+		.getter = &AyuSettings::selectScrollX2,
+		.setter = &AyuSettings::setSelectScrollX2,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/webAppsWindowed"_q,
+		.title = tr::ayu_WebAppsWindowed(),
+		.getter = &AyuSettings::webAppsWindowed,
+		.setter = &AyuSettings::setWebAppsWindowed,
 	});
 	ayu.addSettingToggle({
 		.id = u"ayu/disableCustomBackgrounds"_q,

@@ -647,6 +647,16 @@ TopBar::TopBar(
 		setupBirthdayEffect();
 	}, lifetime());
 
+	// Ayu: the avatar gradient needs the photo to be loaded - recompute
+	// when the userpic arrives, otherwise the first open of a peer with
+	// a not-yet-cached avatar shows no gradient at all.
+	_peer->session().downloaderTaskFinished(
+	) | rpl::on_next([=] {
+		if (!_hasGradientBg && Ui::AvatarGradientColorsFor(_peer)) {
+			updateCollectibleStatus();
+		}
+	}, lifetime());
+
 	if (_forumButton) {
 		_forumButton->show();
 	}
