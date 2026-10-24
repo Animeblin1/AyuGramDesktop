@@ -22,10 +22,9 @@ check succeeds. A release that is already tagged still builds; only the
 publishing step is skipped, so the pipeline can be exercised without
 republishing and a release that failed after tagging can be retried.
 
-A new build of a version that is already released, such as the move from the
-fork's own merge of 7.2.9 to AyuGram's release of it, takes the `revision`
-input: `-f revision=2` publishes `v7.2.9-2` and names the source archive after
-it. The application itself still reports 7.2.9, because its version names the
+A new build of a version that is already released takes the `revision` input:
+`-f revision=2` publishes `v<version>-2` and names the source archive after it.
+The application still reports the plain version, because its version names the
 Telegram Desktop release it is built from, and the workflow accepts a revision
 only for a version that already has its tag.
 
@@ -44,58 +43,56 @@ compilers do not fit in the runner's memory.
    released the same Telegram version, merge its `v<version>` tag and take
    their side in the application sources, except for this fork's changes they
    have not taken yet. Otherwise merge the Telegram Desktop tag and resolve the
-   AyuGram-patched sources by hand. `lib_ui`, `lib_tl` and `codegen` come from
-   AyuGram; a Telegram Desktop tag that moves one of those pins before AyuGram
-   does needs the submodule merged in a fork, and `.gitmodules` points at the
-   fork until AyuGram has the commit.
-2. Set the version in `Telegram/build/version`; the workflow reads it and
-   requires the branch to be named `codex/ayu-<version>`. Upstream bumps the
-   number in `Telegram/SourceFiles/core/version.h` and both files under
-   `Telegram/Resources/winrc/` as well, and those lines carry AyuGram's
-   product names, so all three conflict every time: keep the AyuGram side and
-   raise its number by hand.
-3. Push the branch and let `Source checks` go green before anything expensive
-   starts.
-4. Dispatch the release **from the default branch**, naming the branch to
-   build:
-   `gh workflow run Release --ref dev -f ref=codex/ayu-<version>`, adding
-   `-f revision=<n>` when the version is already released.
+   AyuGram-patched sources by hand. `lib_ui`, `lib_tl` and `codegen` carry
+   AyuGram's patches; a Telegram Desktop tag that moves one of those pins
+   before AyuGram does needs the submodule merged in a fork, and `.gitmodules`
+   points at the fork until AyuGram has the commit.
+2. Set the version in `Telegram/build/version` and add the release to
+   `CHANGELOG.md`; the release notes link to its tagged copy. The workflow
+   reads the version and requires the branch to be named `codex/ayu-<version>`.
+   Upstream bumps the number in `Telegram/SourceFiles/core/version.h` and both
+   files under `Telegram/Resources/winrc/` as well, and those lines carry
+   AyuGram's product names, so all three conflict every time: keep the AyuGram
+   side and raise its number by hand.
+3. Compile the branch for Linux in Telegram Desktop's published image, as
+   [building-linux.md](building-linux.md) describes, with `-e CONFIG=Debug` and
+   `-e KEEP_GOING=1` so that one pass lists every failing unit. With a warm
+   compiler cache this takes minutes; the release workflow reaches the same
+   error hours in. It does not compile the macOS- and Windows-only sources.
+4. Push the branch and let `Source checks` go green.
+5. Dispatch the release **from the default branch**, naming the branch to
+   build: `gh workflow run Release --ref dev -f ref=codex/ayu-<version>`,
+   adding `-f revision=<n>` when the version is already released. The workflow
+   file itself comes from the default branch, so a workflow change the release
+   needs lands there first.
 
-A rename sweep in an upstream release is worth a word of warning, because it
-conflicts nowhere: git keeps the AyuGram line that used the old name beside
-the upstream lines that no longer define it, and the build is the first thing
-that says so. 7.2.9 renamed `ppos` to `innerPos` in the sticker box and moved
-`floorclamp` and `ceilclamp` out of `lib_ui` into `Ui::RowsInRange`; both sites
-were AyuGram's own.
+A rename in an upstream release conflicts nowhere: git keeps the AyuGram line
+that uses the old name beside the upstream lines that no longer define it, and
+only the compiler notices. Merging AyuGram's tag has a similar blind spot. Git
+keeps every line this side changed and AyuGram did not, with no conflict to
+point at it. Diff the result against their tag,
+`git diff <their tag> HEAD -- Telegram`, and make every remaining difference
+one the fork means to keep.
 
-Merging AyuGram's tag has the same blind spot. Git keeps every line this side
-changed and AyuGram did not, with no conflict to point at it. Merging AyuGram
-7.2.9 carried over a dead `MessageFlag::NoForwards` alias and the view-once
-media routing that AyuGram had already replaced. Diff the result against their
-tag, `git diff <their tag> HEAD -- Telegram`, and make every remaining
-difference one the fork means to keep.
+Dispatching from the default branch is not a convenience. A run reaches only
+the caches of its own ref and of the default branch, and the release branch is
+renamed every version, so a release dispatched on its own branch would write
+caches nothing else can ever read and start cold every time. The workflow
+refuses to run anywhere but the default branch for that reason, and which
+branch is the default must not change. Moving the `dev` tip is fine, because
+caches are scoped to the ref name.
 
-Step 4 is not a convenience. A run reaches only the caches of its own ref and
-of the default branch, and the release branch is renamed every version, so a
-release dispatched on its own branch would write caches nothing else can ever
-read and start cold every time. The workflow refuses to run anywhere but the
-default branch for that reason. Which branch is the default must not change
-again: it moved at 7.2.5, which scoped every cache to a branch that was no
-longer the default and left the next release cold. Moving the `dev` tip is a
-different thing and is fine, because caches are scoped to the ref name.
+A failed or cancelled build still saves its compiler cache, so cancel a run as
+soon as it is known to fail: the retry resumes from the objects it produced.
 
-How long the dependency half takes depends on what upstream shipped, and the
-gap is wide enough to plan around. The macOS dependency cache key hashes
-`Telegram/build/prepare/**` and `Telegram/build/qt_version.py`, the Windows
-one hashes `prepare.py` and the SDK version. Neither changed across the six
-version bumps from 7.1.4 to 7.2.5, so all of them reused a dependency tree
-that costs an hour or two per platform to build, and the last four touched
-exactly one source file, the one carrying the version number. 7.2.6 changed
-both files, because it replaced `rlottie` with `tlottie` and preparation
-started building a Rust library; the 7.2.5 to 7.2.7 range also rewrote 154 of
-the 2883 sources. 7.2.9 changed `prepare.py` again and moved four submodule
-pins, so its first run paid for the dependencies a second time. Read those
-paths in the upstream diff before promising anyone a fast release.
+An upstream release that changes `Telegram/build/prepare/**` or
+`Telegram/build/qt_version.py` invalidates the dependency caches, and
+rebuilding them costs an hour or two per platform. New `lib_ui` headers
+invalidate a large share of the compiler cache. Read those paths in the
+upstream diff before promising anyone a fast release. When preparation
+changes, compare the `Libraries` strip in `release.yml` with the one in
+upstream's `canary.yml`: the job caches the tree only after that strip, and a
+file the strip wrongly removes fails the next build that restores the cache.
 
 Merging is the slow half, and none of this speeds it up. It is short when
 AyuGram has released the version first. When the fork goes ahead of them, the
@@ -103,12 +100,12 @@ AyuGram-patched sources and any submodule merges are hand work.
 
 ## Caches
 
-Whether a release takes twenty-five minutes or four hours is decided entirely
-by whether the six caches below were reachable and keyed correctly. Measured
-on 7.2.8, the Windows job costs 4h03m with every cache cold and 24m with every
-cache warm; inside it, preparing the dependencies falls from 1h46m to under
-ten seconds and compiling from 2h01m to 11m25s. The macOS path costs about ten
-minutes warm, both architectures and the universal package included.
+Whether a release takes twenty-five minutes or four hours is decided by whether
+the six caches below were reachable and keyed correctly. Measured on 7.2.8, the
+Windows job costs 4h03m with every cache cold and 24m with every cache warm;
+inside it, preparing the dependencies falls from 1h46m to under ten seconds and
+compiling from 2h01m to 11m25s. The macOS path costs about ten minutes warm,
+both architectures and the universal package included.
 
 | Key prefix | Holds |
 | --- | --- |
@@ -123,46 +120,42 @@ The release job writes every one of them and deletes the entries its own save
 supersedes, because a compiler cache key ends in the commit and every release
 would otherwise leave its predecessor behind. The dependency caches are pruned
 after their save and the compiler caches before theirs, and the order is the
-whole point: three compiler caches coexisting with their predecessors comes to
+whole point: three compiler caches coexisting with their predecessors come to
 about eleven gigabytes, which passes the limit and evicts by least recent use,
 and the entry least recently used is a dependency tree that costs two hours to
 rebuild. Deleting first is safe only for a compiler cache, which one run
-refills. A failed build still saves its compiler cache, so a retry resumes
-from the objects the failed run did produce.
+refills. A successful build also evicts every object it did not use before the
+save. Without that, each version leaves the previous one's objects behind, the
+compiler caches fill to their maximum, and the six entries pass the limit.
 
 The Windows compiler cache is three gigabytes rather than two. A Release build
-compiles 2554 translation units, and in two gigabytes the cache filled to 98%
-and evicted its own entries while the build was still running. The cost was
-measured across four runs: at 74% hits the compile took 28m09s, at 86% 19m34s,
-and at 99%, which is what the whole set fitting in the cache buys, 11m26s. The
-full set occupies 2.2 GB. macOS uses under one gigabyte for the same source,
-because its objects carry no MSVC debug records.
+compiles about 2550 translation units, which occupy 2.2 GB; in two gigabytes
+the cache evicted its own entries while the build was still running, and the
+compile took 28m09s at 74% hits against 11m26s at 99%. macOS uses under one
+gigabyte for the same source, because its objects carry no MSVC debug records.
 
 The Windows dependency keys hash the absolute build root along with
 `prepare.py` and the SDK version. `prepare.py` writes a per-stage key for
 every library that embeds that same absolute path, so a cache keyed without it
 hits while every stage inside it misses: the job rebuilds Qt from source for
-two hours and then skips the save because the outer cache hit. That is not
-hypothetical. Moving the build from `C:\Users\runneradmin\TBuild` to the
-workspace drive did exactly this and poisoned the cache for every release that
-followed. Any future change to the build root must stay inside the key.
+two hours and then skips the save because the outer cache hit. Any change to
+the build root must stay inside the key.
 
 The build runs on the workspace drive, `D:`, because the runner image leaves
-about 25 GB free on `C:` out of 150 GB, which a Release build does not fit
-into. A build placed on `C:` gets through the compile and dies on the link,
-three hours in. The Windows job prints `df -h` into the log for this reason —
-the fuller report in the run summary cannot be read without a GitHub login.
+about 25 GB free on `C:`, which a Release build does not fit into: a build
+placed on `C:` gets through the compile and dies on the link, three hours in.
+The Windows job prints `df -h` into the log for this reason, since the fuller
+report in the run summary cannot be read without a GitHub login.
 
 `Cache keepalive` runs twice a week and restores every key prefix, spelling
 each path exactly as the release workflow spells it. The path is hashed into
 the cache entry's version, so a keepalive that writes the same bytes to a
 differently written path misses every entry and refreshes nothing. GitHub
-evicts a cache nothing has read for seven days; since 2025-11-20 that window
-is configurable, but raising it requires a paid plan. Scheduled runs always
-use the default branch, which is both the scope the release needs and the only
-place GitHub will start them from. GitHub also disables scheduled workflows in
-a repository with no activity for sixty days, which would stop the refreshing
-silently.
+evicts a cache nothing has read for seven days; raising that window requires a
+paid plan. Scheduled runs always use the default branch, which is both the
+scope the release needs and the only place GitHub will start them from. GitHub
+also disables scheduled workflows in a repository with no activity for sixty
+days, which would stop the refreshing silently.
 
 The compiler cache key deliberately carries no toolchain fingerprint. `ccache`
 already hashes the compiler through `compiler_check = content`, so a runner
@@ -185,8 +178,8 @@ has to fit inside the job limit.
 
 The dependency build runs with the compiler cache switched off. Its output is
 cached as a whole tree, so the objects would only crowd the application's out
-of the two gigabyte budget, and on Windows the cache is actively harmful:
-`meson` takes `ccache` from `PATH` as the compiler launcher and then parses the
+of the cache budget, and on Windows the cache is actively harmful: `meson`
+takes `ccache` from `PATH` as the compiler launcher and then parses the
 `/showIncludes` output it wraps, so a cache configured to rewrite paths makes
 `meson setup` fail outright on every library it builds.
 
@@ -200,9 +193,9 @@ validates them before any expensive job starts, because `configure` fails on
 empty credentials only after the dependencies are built.
 
 See [macOS](building-mac.md), [Windows](building-win.md) and
-[Linux](building-linux.md) for the platform build commands. Windows and Linux
-still require full build and runtime verification on this branch. A successful
-macOS build does not establish compatibility on those platforms.
+[Linux](building-linux.md) for the platform build commands. The workflow
+builds the Windows packages but does not run them, and Linux is compiled only
+by the check above, never packaged.
 
 ## Public release requirements
 
@@ -236,23 +229,21 @@ names do not belong in the product defaults.
 
 Close the application and back up its current profile before replacing a build.
 Do not overwrite an existing profile automatically, silently merge accounts or
-run two clients with copied authorization. Earlier experimental builds using a
-different directory need an explicit local migration; this source change does
-not perform one.
+run two clients with copied authorization.
 
 ## Contributing upstream
 
-From AyuGram's 7.2.9 on, the fork builds on AyuGram's releases rather than on
-its own merges of Telegram Desktop. A change worth having upstream goes to
-AyuGram as a pull request of its own against `dev`, separate from any version
-merge, so that it can be reviewed and taken alone. Start it as a draft until
-the advertised platform checks pass. An open PR or a gap between releases is
-not evidence that upstream is abandoned.
+The fork builds on AyuGram's releases and merges a Telegram Desktop release
+itself only while AyuGram has not released it. A change worth having upstream
+goes to AyuGram as a pull request of its own against `dev`, separate from any
+version merge, so that it can be reviewed and taken alone. Start it as a draft
+until the advertised platform checks pass. An open PR or a gap between releases
+is not evidence that upstream is abandoned.
 
-`.gitmodules` points at AyuGram's `lib_ui`, `lib_tl` and `codegen`. Keep the
-URLs absolute: a contributor must be able to fork only the main repository and
-still clone its dependencies. Pin only a commit that sits on a branch of the
-repository the URL names. AyuGram rebases its patches in these repositories
-onto each new upstream and force-pushes them, so a pin taken from an older
-branch can end up on no branch at all. That is what happened to the `codegen`
-pin `8845d9d` at 7.2.9.
+`.gitmodules` points at AyuGram's `lib_ui`, `lib_tl` and `codegen`, or at this
+fork's copy of one while its pin needs a merge AyuGram has not published. Keep
+the URLs absolute: a contributor must be able to fork only the main repository
+and still clone its dependencies. Pin only a commit that sits on a branch of
+the repository the URL names, and keep that branch. AyuGram rebases its patches
+in these repositories onto each new upstream and force-pushes them, so a pin
+taken from an older branch can end up on no branch at all.

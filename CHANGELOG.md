@@ -1,5 +1,29 @@
 # Changelog
 
+## 7.3.3 - 2026-10-22
+
+- Updated the application base to Telegram Desktop 7.3.3 ahead of an AyuGram
+  release of it, with the fixes of 7.3.2 and 7.3.3. The base also carries
+  AyuGram's unreleased fix that honors the similar channels setting in search.
+- Fixed incoming messages that stayed unread on other devices after being
+  read here. A chat open at the bottom could read a new message before its
+  unread count included it, and the read never reached the server, so other
+  devices kept the unread badge and the notification.
+- The Windows build moves from Qt 5 to Qt 6, as Telegram Desktop 7.3.2 did.
+- `lib_ui` comes from this fork's copy of AyuGram's branch with Telegram
+  Desktop 7.3.3 merged in; `codegen` keeps its 7.3.1 copy, which 7.3.3 did
+  not move.
+
+## 7.3.1 - 2026-10-12
+
+- Updated the application base to Telegram Desktop 7.3.1 ahead of an AyuGram
+  release of it. This brings the wallet added in 7.3, Unicode 17 emoji from
+  7.2.10, and the fixes of both.
+- `lib_ui` and `codegen` come from this fork's copies of AyuGram's branches
+  with Telegram Desktop 7.3.1 merged in, until AyuGram publishes the same pins.
+- Keep the generated wallet engine sources in the cached dependency tree, as
+  Telegram Desktop's own workflow does.
+
 ## 7.2.9-3 - 2026-10-05
 
 - Strip local symbols from the macOS executable. The release step removed only
