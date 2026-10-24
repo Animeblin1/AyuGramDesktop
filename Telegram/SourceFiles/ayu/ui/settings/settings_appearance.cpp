@@ -27,6 +27,7 @@
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
 #include "ui/painter.h"
+#include "ui/widgets/continuous_sliders.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/wrap/padding_wrap.h"
