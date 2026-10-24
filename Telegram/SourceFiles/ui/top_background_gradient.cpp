@@ -300,7 +300,7 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 	if (!settings.profileGradientFromAvatar()) {
 		return std::nullopt;
 	}
-	const auto key = ((quint64(peer->id().value) << 24)
+	const auto key = ((quint64(peer->id.value) << 24)
 		^ quint64(peer->userpicPhotoId()));
 	static auto cached = base::flat_map<quint64, AvatarGradient>();
 	const auto it = cached.find(key);
