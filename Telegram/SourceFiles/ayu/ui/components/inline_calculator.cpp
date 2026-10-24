@@ -6,6 +6,7 @@
 // Copyright @Radolyn, 2026
 #include "ayu/ui/components/inline_calculator.h"
 
+#include "ui/painter.h"
 #include "styles/style_basic.h"
 
 #include <cmath>
