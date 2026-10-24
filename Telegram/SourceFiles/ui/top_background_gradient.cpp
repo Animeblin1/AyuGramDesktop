@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_star_gift.h"
 #include "data/stickers/data_custom_emoji.h"
 #include "main/main_session.h"
+#include "ui/empty_userpic.h"
 #include "ui/image/image_prepare.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
@@ -367,6 +368,11 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 				}
 			}
 		}
+	} else {
+		// Letter avatar: derive the gradient from its two colors.
+		const auto index = Ui::EmptyUserpic::ColorIndex(peer->id.value);
+		const auto bg = Ui::EmptyUserpic::UserpicColor(index);
+		result = std::make_pair(bg.color1->c, bg.color2->c);
 	}
 	cached.emplace(key, result);
 	return result;
