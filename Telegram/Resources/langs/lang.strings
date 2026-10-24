@@ -8911,6 +8911,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_SettingsUnlimitedRecentStickers" = "Unlimited Recent Stickers";
 "ayu_SettingsCustomizationHint" = "You must restart the application after making changes in the \"Customization\" section.";
 "ayu_MaterialSwitches" = "MD3 Switch Style";
+"ayu_SmoothCaret" = "Animated Caret";
+"ayu_SmoothCaretDescription" = "Caret slides smoothly between keys, like in Claude Code";
 "ayu_RemoveMessageTail" = "Remove Message Tail";
 "ayu_HideShareButton" = "Hide Side \"Share\" Button";
 "ayu_ChatFoldersHeader" = "Chat Folders";

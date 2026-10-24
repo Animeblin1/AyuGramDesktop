@@ -198,6 +198,12 @@ void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = &AyuSettings::setMaterialSwitches,
 	});
 	ayu.addSettingToggle({
+		.id = u"ayu/smoothCaret"_q,
+		.title = tr::ayu_SmoothCaret(),
+		.getter = &AyuSettings::smoothCaret,
+		.setter = &AyuSettings::setSmoothCaret,
+	});
+	ayu.addSettingToggle({
 		.id = u"ayu/disableCustomBackgrounds"_q,
 		.altIds = { u"ayu/customThemes"_q },
 		.title = tr::ayu_DisableCustomBackgrounds(),
