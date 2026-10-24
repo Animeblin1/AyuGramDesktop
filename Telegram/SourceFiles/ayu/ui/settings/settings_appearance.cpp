@@ -21,6 +21,7 @@
 #include "settings/settings_common.h"
 #include "styles/style_ayu_icons.h"
 #include "styles/style_ayu_styles.h"
+#include "styles/style_boxes.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
@@ -335,89 +336,89 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		},
 	});
 
-	// Ayu: wheel notch step as a percentage, slider with a live label
-	// plus a numeric input field synced both ways.
-	builder.add([=](const WidgetContext &ctx) -> SectionBuilder::WidgetToAdd {
-		const auto container = ctx.container;
+		// Ayu: wheel notch step as a percentage, slider with a live label
+		// plus a numeric input field synced both ways.
+		builder.add([=](const WidgetContext &ctx) -> SectionBuilder::WidgetToAdd {
+			const auto container = ctx.container;
 
-		auto sliderWithLabel = MakeSliderWithLabel(
-			container,
-			st::autoDownloadLimitSlider,
-			st::settingsScaleLabel,
-			0,
-			st::settingsScaleLabel.style.font->width("888 %"),
-			true);
-		const auto slider = sliderWithLabel.slider;
-		const auto label = sliderWithLabel.label;
+			auto sliderWithLabel = MakeSliderWithLabel(
+				container,
+				st::autoDownloadLimitSlider,
+				st::settingsScaleLabel,
+				0,
+				st::settingsScaleLabel.style.font->width("888 %"),
+				true);
+			const auto slider = sliderWithLabel.slider;
+			const auto label = sliderWithLabel.label;
 
-		constexpr auto kMin = 50;
-		constexpr auto kMax = 400;
-		constexpr auto kStep = 10;
-		constexpr auto kCount = ((kMax - kMin) / kStep) + 1;
-		const auto toPercent = [](int index) {
-			return kMin + index * kStep;
-		};
+			constexpr auto kMin = 50;
+			constexpr auto kMax = 400;
+			constexpr auto kStep = 10;
+			constexpr auto kCount = ((kMax - kMin) / kStep) + 1;
+			const auto toPercent = [](int index) {
+				return kMin + index * kStep;
+			};
 
-		const auto current = container->lifetime().make_state<int>(
-			std::clamp(
-				settings->wheelScrollStep(),
-				kMin,
-				kMax));
+			const auto current = container->lifetime().make_state<int>(
+				std::clamp(
+					settings->wheelScrollStep(),
+					kMin,
+					kMax));
 
-		const auto field = object_ptr<Ui::InputField>(
-			container,
-			st::defaultInputField,
-			tr::ayu_WheelScrollStep(),
-			QString::number(*current));
-		const auto fieldRaw = field.data();
-		fieldRaw->setMaxLength(4);
+			auto field = object_ptr<Ui::InputField>(
+				container,
+				st::defaultInputField,
+				tr::ayu_WheelScrollStep(),
+				QString::number(*current));
+			const auto fieldRaw = field.data();
+			fieldRaw->setMaxLength(4);
 
-		const auto applyPercent = [=](int percent) {
-			const auto clamped = std::clamp(percent, kMin, kMax);
-			if (*current == clamped) {
-				return;
-			}
-			*current = clamped;
-			AyuSettings::getInstance().setWheelScrollStep(clamped);
-			label->setText(QString::number(clamped) + u" %"_q);
-			if (fieldRaw->getLastText()
-				!= QString::number(clamped)) {
-				fieldRaw->setText(QString::number(clamped));
-			}
-			slider->setValue(
-				(clamped - kMin) / float64(kMax - kMin));
-		};
+			const auto applyPercent = [=](int percent) {
+				const auto clamped = std::clamp(percent, kMin, kMax);
+				if (*current == clamped) {
+					return;
+				}
+				*current = clamped;
+				AyuSettings::getInstance().setWheelScrollStep(clamped);
+				label->setText(QString::number(clamped) + u" %"_q);
+				if (fieldRaw->getLastText()
+					!= QString::number(clamped)) {
+					fieldRaw->setText(QString::number(clamped));
+				}
+				slider->setValue(
+					(clamped - kMin) / float64(kMax - kMin));
+			};
 
-		slider->setPseudoDiscrete(
-			kCount,
-			toPercent,
-			*current,
-			[=](int percent) { applyPercent(percent); },
-			[=](int percent) { applyPercent(percent); });
-		label->setText(QString::number(*current) + u" %"_q);
+			slider->setPseudoDiscrete(
+				kCount,
+				toPercent,
+				*current,
+				[=](int percent) { applyPercent(percent); },
+				[=](int percent) { applyPercent(percent); });
+			label->setText(QString::number(*current) + u" %"_q);
 
-		fieldRaw->changes(
-		) | rpl::on_next([=] {
-			auto ok = false;
-			const auto value = fieldRaw->getLastText().toInt(&ok);
-			if (ok && value >= kMin && value <= kMax) {
-				applyPercent(value);
-			}
-		}, fieldRaw->lifetime());
+			fieldRaw->changes(
+			) | rpl::on_next([=] {
+				auto ok = false;
+				const auto value = fieldRaw->getLastText().toInt(&ok);
+				if (ok && value >= kMin && value <= kMax) {
+					applyPercent(value);
+				}
+			}, fieldRaw->lifetime());
 
-		const auto wrap = object_ptr<Ui::VerticalLayout>(container);
-		const auto inner = wrap.data();
-		inner->add(
-			std::move(sliderWithLabel.widget),
-			st::recentStickersLimitPadding);
-		inner->add(
-			std::move(field),
-			st::settingsButtonNoIcon.padding);
+			auto wrap = object_ptr<Ui::VerticalLayout>(container);
+			const auto inner = wrap.data();
+			inner->add(
+				std::move(sliderWithLabel.widget),
+				st::recentStickersLimitPadding);
+			inner->add(
+				std::move(field),
+				st::settingsButtonNoIcon.padding);
 
-		return {
-			.widget = std::move(wrap),
-		};
-	});
+			return {
+				.widget = std::move(wrap),
+			};
+		});
 
 	builder.addSkip();
 }
