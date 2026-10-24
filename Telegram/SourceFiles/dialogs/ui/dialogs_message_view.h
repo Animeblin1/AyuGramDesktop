@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 class Image;
 class HistoryItem;
+class PeerData;
 enum class ImageRoundRadius;
 
 namespace style {
@@ -20,6 +21,7 @@ struct DialogsMiniIcon;
 
 namespace Ui {
 class SpoilerAnimation;
+struct PeerUserpicView;
 } // namespace Ui
 
 namespace Data {
@@ -107,6 +109,8 @@ private:
 	mutable QRect _lastPaintGeometry;
 	mutable bool _hasPlainLinkAtBegin = false;
 	mutable bool _unreadMedia = false;
+	PeerData *_miniSender = nullptr;
+	mutable ::Ui::PeerUserpicView _miniUserpic;
 
 };
 

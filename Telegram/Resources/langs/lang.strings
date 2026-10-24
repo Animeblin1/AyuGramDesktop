@@ -9477,6 +9477,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_CaretReset" = "Reset Caret Settings";
 "ayu_ProfileGradientWholeCard" = "Profile Gradient on Whole Card";
 "ayu_SelectionScrollX2" = "Selection Edge-Scroll x2 (off: x1.5)";
+"ayu_MiniAvatars" = "Mini Sender Avatars in Chat List";
+"ayu_OnlineIndicator" = "Online Indicator on Avatars";
+"ayu_AvatarsHeader" = "Avatars";
 "ayu_RemoveMessageTail" = "Remove Message Tail";
 "ayu_HideShareButton" = "Hide Side \"Share\" Button";
 "ayu_ChatFoldersHeader" = "Chat Folders";
