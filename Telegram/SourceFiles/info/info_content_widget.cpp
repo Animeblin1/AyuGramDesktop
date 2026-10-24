@@ -193,7 +193,7 @@ void ContentWidget::paintEvent(QPaintEvent *e) {
 	// background lower down. Can be limited back to the top bar only.
 	if (_controller->section().type() == Section::Type::Profile
 		&& AyuSettings::getInstance().profileGradientWholeCard()) {
-		if (const auto colors = AvatarGradientColorsFor(
+		if (const auto colors = Ui::AvatarGradientColorsFor(
 				_controller->peer())) {
 			const auto fade = std::clamp(
 				int(height() * 0.6),
