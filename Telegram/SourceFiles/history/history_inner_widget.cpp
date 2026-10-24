@@ -1858,6 +1858,8 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
 						userpicTop + st::msgPhotoSize - dot,
 						dot,
 						dot));
+					p.setPen(Qt::NoPen);
+					p.setBrush(Qt::NoBrush);
 				}
 			}
 			if (shift) {
