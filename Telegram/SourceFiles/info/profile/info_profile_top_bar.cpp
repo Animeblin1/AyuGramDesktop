@@ -86,6 +86,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/top_background_gradient.h"
+#include "ayu/ayu_settings.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/glare_tooltip.h"
@@ -506,6 +507,10 @@ TopBar::TopBar(
 	}
 
 	bindStatus();
+	AyuSettings::getInstance().profileGradientWholeCardValue(
+	) | rpl::on_next([=] {
+		update();
+	}, lifetime());
 	if (_hasBalance) {
 		const auto user = _peer->asUser();
 		_balancePill = std::make_unique<BalancePill>(
@@ -3002,6 +3007,39 @@ void TopBar::paintEvent(QPaintEvent *e) {
 		const auto y = (height()
 			- _cachedGradient.height() / style::DevicePixelRatio())
 				/ 2;
+		// Ayu: soften the bottom edge of the bar gradient. With the
+		// whole-card gradient enabled it melts into the same flat color
+		// that the card continues with, otherwise it fades out into the
+		// plain background - no hard cut either way.
+		const auto ayuColors = Ui::AvatarGradientColorsFor(_peer);
+		const auto toFlat = ayuColors.has_value()
+			&& AyuSettings::getInstance().profileGradientWholeCard();
+		const auto flatColor = toFlat ? ayuColors->second : QColor();
+		const auto band = std::min(
+			height(),
+			int(style::ConvertScale(46)));
+		const auto rows = std::max((band + 1) / 2, 1);
+		const auto mainRect = QRect(0, 0, width(), std::max(0, height() - band));
+		const auto paintBand = [&] {
+			for (auto i = 0; i != rows; ++i) {
+				const auto rowTop = height() - band + i * 2;
+				const auto rowH = std::min(2, height() - rowTop);
+				if (rowH <= 0) {
+					break;
+				}
+				const auto row = QRect(0, rowTop, width(), rowH);
+				const auto k = float(i + 1) / rows;
+				p.save();
+				p.setClipRect(row, Qt::IntersectClip);
+				p.setOpacity(1. - k);
+				p.drawImage(x, y, _cachedGradient);
+				if (toFlat) {
+					p.setOpacity(k);
+					p.fillRect(row, flatColor);
+				}
+				p.restore();
+			}
+		};
 		if (clipTouchesRoundedCorners(clipBounds)) {
 			if (_cachedClipPath.isEmpty()) {
 				const auto radius = st::boxRadius;
@@ -3013,9 +3051,15 @@ void TopBar::paintEvent(QPaintEvent *e) {
 			auto hq = PainterHighQualityEnabler(p);
 			p.setPen(Qt::NoPen);
 			p.setClipPath(_cachedClipPath);
+			p.setClipRect(mainRect, Qt::IntersectClip);
 			p.drawImage(x, y, _cachedGradient);
+			paintBand();
+			p.setClipPath(_cachedClipPath);
 		} else {
+			p.setClipRect(mainRect);
 			p.drawImage(x, y, _cachedGradient);
+			paintBand();
+			p.setClipping(false);
 		}
 	}
 	if (_patternEmoji && _patternEmoji->ready()) {

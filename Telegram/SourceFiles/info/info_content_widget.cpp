@@ -202,22 +202,28 @@ void ContentWidget::paintEvent(QPaintEvent *e) {
 		if (const auto colors = Ui::AvatarGradientColorsFor(
 				_controller->peer())) {
 			const auto fade = std::clamp(
-				int(height() * 0.6),
-				300,
-				700);
+				int(height() * 0.7),
+				450,
+				1100);
 			// The gradient is anchored to the content, not the viewport,
 			// so it scrolls away together with the profile.
 			const auto top = -_ayuScrollTop;
 			if (r.bottom() >= top && r.top() < top + fade) {
+				// Starts fully opaque - the same flat color the top bar
+				// gradient melts into - and smoothly dissolves into the
+				// plain background.
 				auto gtop = colors->second;
-				gtop.setAlpha(185);
+				gtop.setAlpha(255);
+				auto upper = colors->second;
+				upper.setAlpha(200);
 				auto center = colors->first;
-				center.setAlpha(120);
+				center.setAlpha(110);
 				auto low = colors->first;
 				low.setAlpha(0);
 				auto g = QLinearGradient(0, top, 0, top + fade);
 				g.setColorAt(0.0, gtop);
-				g.setColorAt(0.4, center);
+				g.setColorAt(0.3, upper);
+				g.setColorAt(0.65, center);
 				g.setColorAt(1.0, low);
 				auto area = QRect(0, top, width(), fade).intersected(r);
 				p.fillRect(area, QBrush(g));
