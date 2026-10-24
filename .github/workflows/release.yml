@@ -1,1 +1,683 @@
-name: Releaseon:  workflow_dispatch:    inputs:      ref:        description: Release branch to build, codex/ayu-<version>        required: true      revision:        description: Rebuild number of an already released version, 2 publishes v<version>-2        required: false        default: ''permissions:  contents: readconcurrency:  group: release-${{ inputs.ref }}  cancel-in-progress: falsejobs:  validate:    name: Validate release head    runs-on: ubuntu-24.04    timeout-minutes: 5    outputs:      sha: ${{ steps.head.outputs.sha }}      version: ${{ steps.head.outputs.version }}      release: ${{ steps.head.outputs.release }}      publish: ${{ steps.head.outputs.publish }}    steps:      - name: Require the default branch        env:          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}        run: |          # Caches are scoped to the ref a run starts on, and only the default          # branch is readable from every other branch.          test "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH"      - name: Validate application credentials        env:          TDESKTOP_API_ID: ${{ vars.TDESKTOP_API_ID }}          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}        run: |          if [[ ! "$TDESKTOP_API_ID" =~ ^[1-9][0-9]*$ || ! "$TDESKTOP_API_HASH" =~ ^[[:xdigit:]]{32}$ ]]; then            echo 'Set TDESKTOP_API_ID and TDESKTOP_API_HASH in repository Actions settings.' >&2            exit 1          fi      - uses: actions/checkout@v7        with:          ref: ${{ inputs.ref }}          fetch-depth: 0          persist-credentials: false      - name: Match source version and release ref        id: head        env:          REF: ${{ inputs.ref }}          REVISION: ${{ inputs.revision }}        run: |          version=$(awk '$1 == "AppVersionStr" { print $2 }' Telegram/build/version)          test "$REF" = "codex/ayu-$version"          test "$(awk '$1 == "AppVersionOriginal" { print $2 }' Telegram/build/version)" = "$version"          test "$(awk '$1 == "BetaChannel" { print $2 }' Telegram/build/version)" = 0          test "$(awk '$1 == "AlphaVersion" { print $2 }' Telegram/build/version)" = 0          test ! -d Telegram/Resources/ayu/languages          release=$version          if [ -n "$REVISION" ]; then            [[ "$REVISION" =~ ^[1-9][0-9]*$ && "$REVISION" -ge 2 ]]            test -n "$(git ls-remote --tags origin "refs/tags/v$version")"            release="$version-$REVISION"          fi          {            echo "version=$version"            echo "release=$release"            echo "sha=$(git rev-parse HEAD)"          } >> "$GITHUB_OUTPUT"          # An already tagged release still builds, so the pipeline can be          # exercised and a failed release retried; only publishing is skipped.          if [ -z "$(git ls-remote --tags origin "refs/tags/v$release")" ]; then            echo 'publish=true' >> "$GITHUB_OUTPUT"          else            echo 'publish=false' >> "$GITHUB_OUTPUT"            echo "Tag \`v$release\` exists, so this run builds without publishing." >> "$GITHUB_STEP_SUMMARY"          fi  source:    name: Full source archive    needs: validate    runs-on: ubuntu-24.04    timeout-minutes: 20    env:      RELEASE: ${{ needs.validate.outputs.release }}    steps:      - uses: actions/checkout@v7        with:          ref: ${{ needs.validate.outputs.sha }}          fetch-depth: 0          submodules: recursive          persist-credentials: false      - name: Archive source and pinned submodules        run: |          root="AyuGramDesktop-$RELEASE"          archive="$RUNNER_TEMP/$root-full.tar"          git archive --format=tar --prefix="$root/" HEAD -o "$archive"          while read -r revision path rest; do            revision="${revision#[-+U]}"            test "$(git -C "$path" rev-parse HEAD)" = "$revision"            part="$RUNNER_TEMP/submodule-$(printf '%s' "$path" | sha256sum | cut -c1-16).tar"            git -C "$path" archive --format=tar --prefix="$root/$path/" "$revision" -o "$part"            tar --concatenate --file="$archive" "$part"          done < <(git submodule status --recursive)          gzip -9 -n "$archive"          mkdir artifacts          mv "$archive.gz" "artifacts/AyuGramDesktop-$RELEASE-full.tar.gz"          tar -tzf "artifacts/AyuGramDesktop-$RELEASE-full.tar.gz" > "$RUNNER_TEMP/source-files.txt"          grep -qx "$root/Telegram/build/version" "$RUNNER_TEMP/source-files.txt"          ! grep -q "$root/Telegram/Resources/ayu/languages/" "$RUNNER_TEMP/source-files.txt"      - uses: actions/upload-artifact@v7        with:          name: release-source          path: artifacts/AyuGramDesktop-${{ needs.validate.outputs.release }}-full.tar.gz          if-no-files-found: error          compression-level: 0          retention-days: 1  linux:    name: Linux x86_64 Release    needs: validate    runs-on: ubuntu-24.04    timeout-minutes: 350    permissions:      contents: read      packages: read    env:      VERSION: ${{ needs.validate.outputs.version }}      RELEASE: ${{ needs.validate.outputs.release }}      SHA: ${{ needs.validate.outputs.sha }}      TDESKTOP_API_ID: ${{ vars.TDESKTOP_API_ID }}      TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}      TBUILD: ${{ github.workspace }}/TBuild      SRC: ${{ github.workspace }}/TBuild/tdesktop    steps:      - name: Require API credentials        run: |          test -n "$TDESKTOP_API_ID" || { echo 'Set TDESKTOP_API_ID in repository Actions settings.' >&2; exit 1; }          test -n "$TDESKTOP_API_HASH" || { echo 'Set TDESKTOP_API_HASH in repository Actions settings.' >&2; exit 1; }      - uses: actions/checkout@v7        with:          ref: ${{ needs.validate.outputs.sha }}          submodules: recursive          path: TBuild/tdesktop          persist-credentials: false      - name: Install poetry        run: pipx install poetry      - name: Resolve image tag        id: image        env:          HASH: ${{ hashFiles('TBuild/tdesktop/Telegram/build/docker/centos_env/Dockerfile', 'TBuild/tdesktop/Telegram/build/docker/centos_env/gen_dockerfile.py', 'TBuild/tdesktop/Telegram/build/docker/centos_env/centos_env/__init__.py', 'TBuild/tdesktop/Telegram/build/docker/centos_env/pyproject.toml', 'TBuild/tdesktop/Telegram/build/docker/centos_env/poetry.lock') }}        run: |          test -n "$HASH"          repo="${GITHUB_REPOSITORY,,}"          echo "ref=ghcr.io/$repo/centos-env:$HASH" >> "$GITHUB_OUTPUT"      - name: Fail early when the centos_env image is missing        env:          IMAGE: ${{ steps.image.outputs.ref }}          GH_TOKEN: ${{ github.token }}        run: |          docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin          docker manifest inspect "$IMAGE" > /dev/null || {            echo "Image $IMAGE does not exist. Run the 'Linux build image' workflow for this branch first." >&2            exit 1          }      - name: Prepare libraries        working-directory: ${{ env.SRC }}        run: ./Telegram/build/prepare/linux.sh      - name: Build in centos_env container        working-directory: ${{ env.SRC }}        env:          IMAGE: ${{ steps.image.outputs.ref }}        run: |          uid=$(id -u)          docker run --rm -u "$uid" \            -v "$SRC:/usr/src/tdesktop" \            -e CONFIG=Release \            "$IMAGE" \            /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \            -D "TDESKTOP_API_ID=$TDESKTOP_API_ID" \            -D "TDESKTOP_API_HASH=$TDESKTOP_API_HASH"      - name: Verify and package Linux artifact        run: |          out="$SRC/out/Release"          test -f "$out/AyuGram" || { echo 'AyuGram binary was not built.' >&2; exit 1; }          strip "$out/AyuGram" || true          work="$RUNNER_TEMP/ayu-linux"          rm -rf "$work"          mkdir -p "$work/AyuGram"          cp "$out/AyuGram" "$work/AyuGram/AyuGram"          if [ -f "$SRC/Telegram/Resources/art/icon_512x512.png" ]; then            cp "$SRC/Telegram/Resources/art/icon_512x512.png" "$work/AyuGram/icon.png"          fi          archive="$RUNNER_TEMP/AyuGram-$RELEASE-linux.tar.gz"          tar -C "$work" -czf "$archive" AyuGram          echo "artifact=$archive" >> "$GITHUB_ENV"      - uses: actions/upload-artifact@v8        with:          name: linux-AyuGram          path: ${{ env.artifact }}          if-no-files-found: error  windows:    name: Windows x64 Release    needs: validate    runs-on: windows-latest    timeout-minutes: 350    permissions:      contents: read      actions: write    defaults:      run:        shell: pwsh    env:      GH_TOKEN: ${{ github.token }}      VERSION: ${{ needs.validate.outputs.version }}      # The runner image leaves about 25 GB free on C:, which a Release build      # does not fit into; the workspace drive is 150 GB and all but empty.      TBUILD: ${{ github.workspace }}\TBuild      SRC: ${{ github.workspace }}\TBuild\AyuGramDesktop      CCACHE_DIR: ${{ github.workspace }}\TBuild\ccache      CCACHE_DEPEND: 'true'      # 2554 objects do not fit in two gigabytes: the cache filled to 98% and      # evicted 655 of its own entries mid-build, costing a quarter of the hits.      CCACHE_MAXSIZE: 3G      CCACHE_COMPILERCHECK: content      CCACHE_SLOPPINESS: pch_defines,time_macros    steps:      - uses: actions/checkout@v7        with:          ref: ${{ needs.validate.outputs.sha }}          submodules: recursive          path: TBuild/AyuGramDesktop          persist-credentials: false      - name: Read toolchain and cache key        id: toolchain        shell: bash        run: |          sdk=$(sed -n 's/.*\*\*\([^*]*\)\*\* SDK version.*/\1/p' "$SRC/docs/building-win.md" | head -1)          test -n "$sdk"          # prepare.py keys every stage by its absolute build root, so a cache          # keyed without it hits while every stage inside it misses.          key=$( { sha256sum "$SRC/Telegram/build/prepare/prepare.py"; printf '%s\n%s\n' "$sdk" "$TBUILD"; } | sha256sum | cut -d' ' -f1)          echo "sdk=$sdk" >> "$GITHUB_OUTPUT"          echo "key=$key" >> "$GITHUB_OUTPUT"      - name: Install Visual Studio ATL component        run: |          $installer = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'          $vswhere = Join-Path $installer 'vswhere.exe'          $setup = Join-Path $installer 'setup.exe'          $toolsComponent = 'Microsoft.VisualStudio.Component.VC.14.44.17.14.x86.x64'          $atlComponent = 'Microsoft.VisualStudio.Component.VC.14.44.17.14.ATL'          $path = @(& $vswhere -latest -products '*' -requires $toolsComponent -property installationPath)[0]          if (-not $path) { throw "No Visual Studio instance provides $toolsComponent." }          $toolset = Get-ChildItem (Join-Path $path 'VC\Tools\MSVC') -Directory |            Where-Object { $_.Name -like '14.44.*' } |            Sort-Object Name -Descending |            Select-Object -First 1          $header = Join-Path $toolset.FullName 'atlmfc\include\atlbase.h'          if (-not (Test-Path $header)) {            $process = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(              'modify', '--installPath', "`"$path`"", '--add', $atlComponent,              '--quiet', '--norestart', '--nocache')            if ($process.ExitCode -notin @(0, 3010)) { exit $process.ExitCode }          }          if (-not (Test-Path $header)) { throw "ATL was not installed at $header." }      - name: Native Tools Command Prompt        uses: Eden-CI/msvc-dev-cmd@1bd71f95d6f3d1b2b3395b335cc63bcdc90cf223        with:          arch: x64          sdk: ${{ steps.toolchain.outputs.sdk }}          toolset: '14.44'      - name: Install the compiler cache        run: |          choco install ccache --version=4.14.0 --no-progress -y          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }          ccache --version      - name: Restore ThirdParty cache        id: third-party-cache        uses: actions/cache/restore@v6        with:          path: ${{ env.TBUILD }}\ThirdParty          key: windows-x64-third-party-${{ steps.toolchain.outputs.key }}          restore-keys: windows-x64-third-party-      - name: Restore libraries cache        id: libraries-cache        uses: actions/cache/restore@v6        with:          path: ${{ env.TBUILD }}\Libraries\win64          key: windows-x64-release-libraries-${{ steps.toolchain.outputs.key }}          restore-keys: windows-x64-release-libraries-      - name: Prepare libraries        shell: cmd        env:          # meson picks ccache up from PATH and parses the `/showIncludes`          # output it wraps, so a compiler cache here breaks the setup of          # every meson library. The dependency tree is cached whole anyway.          CCACHE_DISABLE: '1'        run: call %SRC%\Telegram\build\prepare\win.bat silent qt-release-only      - name: Strip unused library files        shell: bash        run: |          # Upstream's canary strip: the generated wallet engine binding is          # compiled by the application, and tdesktop_rust rebuilds from the          # tlottie and wallet-engine sources.          find "$TBUILD/Libraries/win64" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/src/wallet_engine/*' -o '(' '(' -path '*/tlottie/*' -o -path '*/wallet-engine/*' ')' ! -path '*/target/*' ')' ')' -type f ')' -o '(' -empty ! -path '*/tlottie/*' ! -path '*/wallet-engine/*' ')' ')' -delete          # The disk is what a from-source build runs into, and          # the step summary needs a login to read.          df -h      - name: Save ThirdParty cache        if: steps.third-party-cache.outputs.cache-hit != 'true'        uses: actions/cache/save@v6        with:          path: ${{ env.TBUILD }}\ThirdParty          key: ${{ steps.third-party-cache.outputs.cache-primary-key }}      - name: Save libraries cache        if: steps.libraries-cache.outputs.cache-hit != 'true'        uses: actions/cache/save@v6        with:          path: ${{ env.TBUILD }}\Libraries\win64          key: ${{ steps.libraries-cache.outputs.cache-primary-key }}      - name: Drop superseded dependency caches        continue-on-error: true        shell: bash        env:          KEEP: |            ${{ steps.third-party-cache.outputs.cache-primary-key }}            ${{ steps.libraries-cache.outputs.cache-primary-key }}          PREFIXES: 'windows-x64-third-party- windows-x64-release-libraries-'        run: |          # Kept under ten gigabytes by deleting what each save superseded,          # right after that save rather than at the end of the job.          for prefix in $PREFIXES; do            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true          done      - name: Restore compiler cache        id: compiler-cache        uses: actions/cache/restore@v6        with:          path: ${{ env.TBUILD }}\ccache          key: ccache-windows-x64-release-${{ needs.validate.outputs.sha }}          restore-keys: ccache-windows-x64-release-      - name: Configure Release        shell: cmd        env:          API_ID: ${{ vars.TDESKTOP_API_ID }}          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}        run: |          ccache --zero-stats          echo NUMBER_OF_PROCESSORS=%NUMBER_OF_PROCESSORS%          cd /d %SRC%\Telegram          call configure.bat -G "Ninja Multi-Config" ^            -D CMAKE_CONFIGURATION_TYPES=Release ^            -D CMAKE_EXPORT_COMPILE_COMMANDS=ON ^            "-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=" ^            -D CMAKE_C_COMPILER_LAUNCHER=ccache ^            -D CMAKE_CXX_COMPILER_LAUNCHER=ccache ^            -D "TDESKTOP_API_ID=%API_ID%" ^            -D "TDESKTOP_API_HASH=%API_HASH%" ^            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^            -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON      - name: Verify Release configuration        run: |          $out = Join-Path $env:SRC 'out'          $cache = @{}          Get-Content (Join-Path $out 'CMakeCache.txt') | ForEach-Object {            if ($_ -match '^([^:#/][^:=]*):[^=]+=(.*)$') { $cache[$Matches[1]] = $Matches[2] }          }          if ($cache['CMAKE_CONFIGURATION_TYPES'] -ne 'Release') { throw 'Not a Release-only build.' }          if ($cache['DESKTOP_APP_DISABLE_AUTOUPDATE'] -ne 'ON') { throw 'Updater is enabled.' }          if ($cache['CMAKE_C_COMPILER_LAUNCHER'] -ne 'ccache' -or $cache['CMAKE_CXX_COMPILER_LAUNCHER'] -ne 'ccache') {            throw 'Compiler cache is not wired into the build.'          }          $commands = Get-Content (Join-Path $out 'compile_commands.json') -Raw          if ($commands -notmatch 'Telegram[/\\]SourceFiles' -or $commands -notmatch '(/O2|-O2)' -or $commands -notmatch 'NDEBUG') {            throw 'Release compilation flags were not generated.'          }          if ($commands -match ' /Z(7|i) ') { throw 'Release objects include debug information.' }      - name: Build AyuGram        shell: cmd        run: cmake --build %SRC%\out --config Release --parallel --target Telegram      - name: Build statistics        if: always()        continue-on-error: true        shell: bash        run: |          ccache --show-stats -v || true          df -h || true          python "$SRC/Telegram/build/ninja_log_stats.py" "$SRC/out/.ninja_log" \            --title 'Windows x64 Release' --markdown-file "$GITHUB_STEP_SUMMARY"          {            echo            echo '<details><summary>Windows compiler cache and disk</summary>'            echo            echo '```'            ccache --show-stats -v || true            echo            df -h || true            echo '```'            echo            echo '</details>'          } >> "$GITHUB_STEP_SUMMARY"      - name: Trim compiler cache to this build        # A finished build used every object it needs within the job, which is        # shorter than six hours; older ones only push the caches past the limit.        if: ${{ success() && steps.compiler-cache.outputs.cache-hit != 'true' }}        continue-on-error: true        shell: bash        run: ccache --evict-older-than 21600s      - name: Drop superseded compiler caches        # Same condition as the save below: an empty key would keep nothing.        if: ${{ always() && steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true' }}        continue-on-error: true        shell: bash        env:          KEEP: |            ${{ steps.compiler-cache.outputs.cache-primary-key }}          PREFIXES: ccache-windows-x64-release-        run: |          # Deleted before the save rather than after it: the two would          # otherwise coexist and the repository would pass the ten          # gigabyte limit, evicting a dependency tree that costs hours.          # Safe only for a compiler cache, which one run rebuilds.          for prefix in $PREFIXES; do            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true          done      - name: Save compiler cache        # Saved even when the build failed or was cancelled: a retry then resumes        # from the objects this run did produce instead of recompiling everything.        if: ${{ always() && steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true' }}        uses: actions/cache/save@v6        with:          path: ${{ env.TBUILD }}\ccache          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}      - name: Verify and package Windows artifacts        run: |          $out = Join-Path $env:SRC 'out\Release'          $binary = Join-Path $out 'AyuGram.exe'          if (-not (Test-Path $binary)) { throw 'AyuGram.exe was not built.' }          if (Test-Path (Join-Path $out 'Updater.exe')) { throw 'Updater.exe must not be built.' }          $stream = [IO.File]::OpenRead($binary)          try {            $reader = [IO.BinaryReader]::new($stream)            $stream.Position = 0x3c            $pe = $reader.ReadInt32()            $stream.Position = $pe + 4            $machine = $reader.ReadUInt16()          } finally {            $stream.Dispose()          }          if ($machine -ne 0x8664) { throw "Unexpected PE machine: 0x$($machine.ToString('x4'))." }          $version = (Get-Item $binary).VersionInfo.ProductVersion          if ($version -ne "$env:VERSION.0") { throw "Unexpected product version: $version." }          $signature = Get-AuthenticodeSignature $binary          if ($signature.Status -ne 'NotSigned') { throw "Unexpected application signature status: $($signature.Status)." }          $d3d = Join-Path $out 'modules\x64\d3d\d3dcompiler_47.dll'          if (-not (Test-Path $d3d)) { throw 'D3D compiler module is missing.' }          if (-not (Test-Path (Join-Path $env:SRC 'Telegram\Resources\art\icon256.ico'))) { throw 'Windows application icon is missing.' }          choco install innosetup --version=6.7.1 --no-progress -y          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'          & $iscc "/dMyAppVersion=$env:VERSION" "/dMyAppVersionZero=$env:VERSION" "/dMyAppVersionFull=$env:VERSION" "/dReleasePath=$out" '/dMyBuildTarget=win64' '/dAyuGramUnsigned=1' '/dAyuGramNoUpdater=1' (Join-Path $env:SRC 'Telegram\build\setup.iss')          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }          $setup = Join-Path $out "ayusetup-x64.$env:VERSION.exe"          if (-not (Test-Path $setup)) { throw 'Installer was not created.' }          if ((Get-AuthenticodeSignature $setup).Status -ne 'NotSigned') { throw 'Unexpected installer signature.' }          $artifacts = Join-Path $env:SRC 'artifacts'          New-Item -ItemType Directory -Force $artifacts | Out-Null          Copy-Item $setup (Join-Path $artifacts 'AyuGram.exe')          $portable = Join-Path $env:RUNNER_TEMP 'AyuGram'          New-Item -ItemType Directory -Force (Join-Path $portable 'TelegramForcePortable') | Out-Null          New-Item -ItemType Directory -Force (Join-Path $portable 'modules\x64\d3d') | Out-Null          Copy-Item $binary (Join-Path $portable 'AyuGram.exe')          Copy-Item $d3d (Join-Path $portable 'modules\x64\d3d\d3dcompiler_47.dll')          & 7z a -mx9 (Join-Path $artifacts 'AyuGram.zip') $portable          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }          & 7z t (Join-Path $artifacts 'AyuGram.zip')          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }          $install = Join-Path $env:RUNNER_TEMP 'installed-AyuGram'          $process = Start-Process (Join-Path $artifacts 'AyuGram.exe') -Wait -PassThru -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$install")          if ($process.ExitCode -ne 0) { exit $process.ExitCode }          if (-not (Test-Path (Join-Path $install 'AyuGram.exe'))) { throw 'Installed application is missing.' }          if (Test-Path (Join-Path $install 'Updater.exe')) { throw 'Installer included the updater.' }          if (-not (Test-Path (Join-Path $install 'modules\x64\d3d\d3dcompiler_47.dll'))) { throw 'Installer omitted the D3D module.' }      - uses: actions/upload-artifact@v7        with:          name: release-windows          path: |            ${{ env.SRC }}\artifacts\AyuGram.exe            ${{ env.SRC }}\artifacts\AyuGram.zip          if-no-files-found: error          compression-level: 0          retention-days: 1  publish:    name: Publish GitHub Release    needs: [validate, source, windows]    if: needs.validate.outputs.publish == 'true'    runs-on: ubuntu-24.04    timeout-minutes: 15    permissions:      contents: write    env:      GH_TOKEN: ${{ github.token }}      VERSION: ${{ needs.validate.outputs.version }}      RELEASE: ${{ needs.validate.outputs.release }}      SHA: ${{ needs.validate.outputs.sha }}    steps:      - uses: actions/download-artifact@v8        with:          pattern: release-*          path: release          merge-multiple: true      - name: Verify files and checksums        run: |          cd release          expected=(AyuGram.exe AyuGram.zip "AyuGramDesktop-$RELEASE-full.tar.gz")          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 4          for file in "${expected[@]}"; do test -s "$file"; done          sha256sum "${expected[@]}" > SHA256SUMS.txt          sha256sum --check SHA256SUMS.txt      - name: Publish exact-head release        run: |          cat > "$RUNNER_TEMP/release-notes.md" <<NOTES          Technical maintenance build of AyuGram $VERSION from commit \`$SHA\`.          Changes are listed in [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/v$RELEASE/CHANGELOG.md).          - \`AyuGram.dmg\`: universal macOS application (Apple Silicon and Intel)          - \`AyuGram.exe\`: Windows x64 installer          - \`AyuGram.zip\`: Windows x64 portable application          - \`AyuGramDesktop-$RELEASE-full.tar.gz\`: source with pinned submodules          integrity signature and is not notarized. Windows binaries are not          Authenticode-signed. Verify downloads with \`SHA256SUMS.txt\`.          NOTES          gh release create "v$RELEASE" release/* \            --repo "$GITHUB_REPOSITORY" \            --target "$SHA" \            --title "AyuGram $RELEASE" \            --notes-file "$RUNNER_TEMP/release-notes.md" \            --latest
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Release branch to build, for example codex/ayu-7.2.8
+        required: true
+      revision:
+        description: Rebuild number of an already released version, for example 2 publishes v7.2.9-2
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release head
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.head.outputs.sha }}
+      version: ${{ steps.head.outputs.version }}
+      release: ${{ steps.head.outputs.release }}
+      publish: ${{ steps.head.outputs.publish }}
+    steps:
+      - name: Require the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          # Caches are scoped to the ref a run starts on, and only the default
+          # branch is readable from every other branch.
+          test "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH"
+      - name: Validate application credentials
+        env:
+          TDESKTOP_API_ID: ${{ vars.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          if [[ ! "$TDESKTOP_API_ID" =~ ^[1-9][0-9]*$ || ! "$TDESKTOP_API_HASH" =~ ^[[:xdigit:]]{32}$ ]]; then
+            echo 'Set TDESKTOP_API_ID and TDESKTOP_API_HASH in repository Actions settings.' >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Match source version and release ref
+        id: head
+        env:
+          REF: ${{ inputs.ref }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          version=$(awk '$1 == "AppVersionStr" { print $2 }' Telegram/build/version)
+          test "$REF" = "codex/ayu-$version"
+          test "$(awk '$1 == "AppVersionOriginal" { print $2 }' Telegram/build/version)" = "$version"
+          test "$(awk '$1 == "BetaChannel" { print $2 }' Telegram/build/version)" = 0
+          test "$(awk '$1 == "AlphaVersion" { print $2 }' Telegram/build/version)" = 0
+          test ! -d Telegram/Resources/ayu/languages
+          release=$version
+          if [ -n "$REVISION" ]; then
+            [[ "$REVISION" =~ ^[1-9][0-9]*$ && "$REVISION" -ge 2 ]]
+            test -n "$(git ls-remote --tags origin "refs/tags/v$version")"
+            release="$version-$REVISION"
+          fi
+          {
+            echo "version=$version"
+            echo "release=$release"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+          # An already tagged release still builds, so the pipeline can be
+          # exercised and a failed release retried; only publishing is skipped.
+          if [ -z "$(git ls-remote --tags origin "refs/tags/v$release")" ]; then
+            echo 'publish=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'publish=false' >> "$GITHUB_OUTPUT"
+            echo "Tag \`v$release\` exists, so this run builds without publishing." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  source:
+    name: Full source archive
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RELEASE: ${{ needs.validate.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Archive source and pinned submodules
+        run: |
+          root="AyuGramDesktop-$RELEASE"
+          archive="$RUNNER_TEMP/$root-full.tar"
+          git archive --format=tar --prefix="$root/" HEAD -o "$archive"
+          while read -r revision path rest; do
+            revision="${revision#[-+U]}"
+            test "$(git -C "$path" rev-parse HEAD)" = "$revision"
+            part="$RUNNER_TEMP/submodule-$(printf '%s' "$path" | sha256sum | cut -c1-16).tar"
+            git -C "$path" archive --format=tar --prefix="$root/$path/" "$revision" -o "$part"
+            tar --concatenate --file="$archive" "$part"
+          done < <(git submodule status --recursive)
+          gzip -9 -n "$archive"
+          mkdir artifacts
+          mv "$archive.gz" "artifacts/AyuGramDesktop-$RELEASE-full.tar.gz"
+          tar -tzf "artifacts/AyuGramDesktop-$RELEASE-full.tar.gz" > "$RUNNER_TEMP/source-files.txt"
+          grep -qx "$root/Telegram/build/version" "$RUNNER_TEMP/source-files.txt"
+          ! grep -q "$root/Telegram/Resources/ayu/languages/" "$RUNNER_TEMP/source-files.txt"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-source
+          path: artifacts/AyuGramDesktop-${{ needs.validate.outputs.release }}-full.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  windows:
+    name: Windows x64 Release
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      actions: write
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.validate.outputs.version }}
+      # The runner image leaves about 25 GB free on C:, which a Release build
+      # does not fit into; the workspace drive is 150 GB and all but empty.
+      TBUILD: ${{ github.workspace }}\TBuild
+      SRC: ${{ github.workspace }}\TBuild\AyuGramDesktop
+      CCACHE_DIR: ${{ github.workspace }}\TBuild\ccache
+      CCACHE_DEPEND: 'true'
+      # 2554 objects do not fit in two gigabytes: the cache filled to 98% and
+      # evicted 655 of its own entries mid-build, costing a quarter of the hits.
+      CCACHE_MAXSIZE: 3G
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: pch_defines,time_macros
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          submodules: recursive
+          path: TBuild/AyuGramDesktop
+          persist-credentials: false
+      - name: Read toolchain and cache key
+        id: toolchain
+        shell: bash
+        run: |
+          sdk=$(sed -n 's/.*\*\*\([^*]*\)\*\* SDK version.*/\1/p' "$SRC/docs/building-win.md" | head -1)
+          test -n "$sdk"
+          # prepare.py keys every stage by its absolute build root, so a cache
+          # keyed without it hits while every stage inside it misses.
+          key=$( { sha256sum "$SRC/Telegram/build/prepare/prepare.py"; printf '%s\n%s\n' "$sdk" "$TBUILD"; } | sha256sum | cut -d' ' -f1)
+          echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+      - name: Install Visual Studio ATL component
+        run: |
+          $installer = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
+          $vswhere = Join-Path $installer 'vswhere.exe'
+          $setup = Join-Path $installer 'setup.exe'
+          $toolsComponent = 'Microsoft.VisualStudio.Component.VC.14.44.17.14.x86.x64'
+          $atlComponent = 'Microsoft.VisualStudio.Component.VC.14.44.17.14.ATL'
+          $path = @(& $vswhere -latest -products '*' -requires $toolsComponent -property installationPath)[0]
+          if (-not $path) { throw "No Visual Studio instance provides $toolsComponent." }
+          $toolset = Get-ChildItem (Join-Path $path 'VC\Tools\MSVC') -Directory |
+            Where-Object { $_.Name -like '14.44.*' } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          $header = Join-Path $toolset.FullName 'atlmfc\include\atlbase.h'
+          if (-not (Test-Path $header)) {
+            $process = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
+              'modify', '--installPath', "`"$path`"", '--add', $atlComponent,
+              '--quiet', '--norestart', '--nocache')
+            if ($process.ExitCode -notin @(0, 3010)) { exit $process.ExitCode }
+          }
+          if (-not (Test-Path $header)) { throw "ATL was not installed at $header." }
+      - name: Native Tools Command Prompt
+        uses: Eden-CI/msvc-dev-cmd@1bd71f95d6f3d1b2b3395b335cc63bcdc90cf223
+        with:
+          arch: x64
+          sdk: ${{ steps.toolchain.outputs.sdk }}
+          toolset: '14.44'
+      - name: Install the compiler cache
+        run: |
+          choco install ccache --version=4.14.0 --no-progress -y
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ccache --version
+      - name: Restore ThirdParty cache
+        id: third-party-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: windows-x64-third-party-${{ steps.toolchain.outputs.key }}
+          restore-keys: windows-x64-third-party-
+      - name: Restore libraries cache
+        id: libraries-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.TBUILD }}\Libraries\win64
+          key: windows-x64-release-libraries-${{ steps.toolchain.outputs.key }}
+          restore-keys: windows-x64-release-libraries-
+      - name: Prepare libraries
+        shell: cmd
+        env:
+          # meson picks ccache up from PATH and parses the `/showIncludes`
+          # output it wraps, so a compiler cache here breaks the setup of
+          # every meson library. The dependency tree is cached whole anyway.
+          CCACHE_DISABLE: '1'
+        run: call %SRC%\Telegram\build\prepare\win.bat silent qt-release-only
+      - name: Strip unused library files
+        shell: bash
+        run: |
+          find "$TBUILD/Libraries/win64" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+          # The disk is what a from-source build runs into, and
+          # the step summary needs a login to read.
+          df -h
+      - name: Save ThirdParty cache
+        if: steps.third-party-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: ${{ steps.third-party-cache.outputs.cache-primary-key }}
+      - name: Save libraries cache
+        if: steps.libraries-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.TBUILD }}\Libraries\win64
+          key: ${{ steps.libraries-cache.outputs.cache-primary-key }}
+      - name: Drop superseded dependency caches
+        continue-on-error: true
+        shell: bash
+        env:
+          KEEP: |
+            ${{ steps.third-party-cache.outputs.cache-primary-key }}
+            ${{ steps.libraries-cache.outputs.cache-primary-key }}
+          PREFIXES: 'windows-x64-third-party- windows-x64-release-libraries-'
+        run: |
+          # Kept under ten gigabytes by deleting what each save superseded,
+          # right after that save rather than at the end of the job.
+          for prefix in $PREFIXES; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |
+              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
+          done
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.TBUILD }}\ccache
+          key: ccache-windows-x64-release-${{ needs.validate.outputs.sha }}
+          restore-keys: ccache-windows-x64-release-
+      - name: Configure Release
+        shell: cmd
+        env:
+          API_ID: ${{ vars.TDESKTOP_API_ID }}
+          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          ccache --zero-stats
+          echo NUMBER_OF_PROCESSORS=%NUMBER_OF_PROCESSORS%
+          cd /d %SRC%\Telegram
+          call configure.bat -G "Ninja Multi-Config" ^
+            -D CMAKE_CONFIGURATION_TYPES=Release ^
+            -D CMAKE_EXPORT_COMPILE_COMMANDS=ON ^
+            "-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=" ^
+            -D CMAKE_C_COMPILER_LAUNCHER=ccache ^
+            -D CMAKE_CXX_COMPILER_LAUNCHER=ccache ^
+            -D "TDESKTOP_API_ID=%API_ID%" ^
+            -D "TDESKTOP_API_HASH=%API_HASH%" ^
+            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
+            -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+      - name: Verify Release configuration
+        run: |
+          $out = Join-Path $env:SRC 'out'
+          $cache = @{}
+          Get-Content (Join-Path $out 'CMakeCache.txt') | ForEach-Object {
+            if ($_ -match '^([^:#/][^:=]*):[^=]+=(.*)$') { $cache[$Matches[1]] = $Matches[2] }
+          }
+          if ($cache['CMAKE_CONFIGURATION_TYPES'] -ne 'Release') { throw 'Not a Release-only build.' }
+          if ($cache['DESKTOP_APP_DISABLE_AUTOUPDATE'] -ne 'ON') { throw 'Updater is enabled.' }
+          if ($cache['CMAKE_C_COMPILER_LAUNCHER'] -ne 'ccache' -or $cache['CMAKE_CXX_COMPILER_LAUNCHER'] -ne 'ccache') {
+            throw 'Compiler cache is not wired into the build.'
+          }
+          $commands = Get-Content (Join-Path $out 'compile_commands.json') -Raw
+          if ($commands -notmatch 'Telegram[/\\]SourceFiles' -or $commands -notmatch '(/O2|-O2)' -or $commands -notmatch 'NDEBUG') {
+            throw 'Release compilation flags were not generated.'
+          }
+          if ($commands -match ' /Z(7|i) ') { throw 'Release objects include debug information.' }
+      - name: Build AyuGram
+        shell: cmd
+        run: cmake --build %SRC%\out --config Release --parallel --target Telegram
+      - name: Build statistics
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          ccache --show-stats -v || true
+          df -h || true
+          python "$SRC/Telegram/build/ninja_log_stats.py" "$SRC/out/.ninja_log" \
+            --title 'Windows x64 Release' --markdown-file "$GITHUB_STEP_SUMMARY"
+          {
+            echo
+            echo '<details><summary>Windows compiler cache and disk</summary>'
+            echo
+            echo '```'
+            ccache --show-stats -v || true
+            echo
+            df -h || true
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Drop superseded compiler caches
+        # Matches the save below, so a failed build still replaces its cache.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        shell: bash
+        env:
+          KEEP: |
+            ${{ steps.compiler-cache.outputs.cache-primary-key }}
+          PREFIXES: ccache-windows-x64-release-
+        run: |
+          # Deleted before the save rather than after it: the two would
+          # otherwise coexist and the repository would pass the ten
+          # gigabyte limit, evicting a dependency tree that costs hours.
+          # Safe only for a compiler cache, which one run rebuilds.
+          for prefix in $PREFIXES; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |
+              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
+          done
+      - name: Save compiler cache
+        # Saved even when the build failed: a retry then resumes from the
+        # objects this run did produce instead of recompiling everything.
+        if: ${{ !cancelled() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.TBUILD }}\ccache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Verify and package Windows artifacts
+        run: |
+          $out = Join-Path $env:SRC 'out\Release'
+          $binary = Join-Path $out 'AyuGram.exe'
+          if (-not (Test-Path $binary)) { throw 'AyuGram.exe was not built.' }
+          if (Test-Path (Join-Path $out 'Updater.exe')) { throw 'Updater.exe must not be built.' }
+          $stream = [IO.File]::OpenRead($binary)
+          try {
+            $reader = [IO.BinaryReader]::new($stream)
+            $stream.Position = 0x3c
+            $pe = $reader.ReadInt32()
+            $stream.Position = $pe + 4
+            $machine = $reader.ReadUInt16()
+          } finally {
+            $stream.Dispose()
+          }
+          if ($machine -ne 0x8664) { throw "Unexpected PE machine: 0x$($machine.ToString('x4'))." }
+          $version = (Get-Item $binary).VersionInfo.ProductVersion
+          if ($version -ne "$env:VERSION.0") { throw "Unexpected product version: $version." }
+          $signature = Get-AuthenticodeSignature $binary
+          if ($signature.Status -ne 'NotSigned') { throw "Unexpected application signature status: $($signature.Status)." }
+          $d3d = Join-Path $out 'modules\x64\d3d\d3dcompiler_47.dll'
+          if (-not (Test-Path $d3d)) { throw 'D3D compiler module is missing.' }
+          if (-not (Test-Path (Join-Path $env:SRC 'Telegram\Resources\art\icon256.ico'))) { throw 'Windows application icon is missing.' }
+          choco install innosetup --version=6.7.1 --no-progress -y
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          & $iscc "/dMyAppVersion=$env:VERSION" "/dMyAppVersionZero=$env:VERSION" "/dMyAppVersionFull=$env:VERSION" "/dReleasePath=$out" '/dMyBuildTarget=win64' '/dAyuGramUnsigned=1' '/dAyuGramNoUpdater=1' (Join-Path $env:SRC 'Telegram\build\setup.iss')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $setup = Join-Path $out "ayusetup-x64.$env:VERSION.exe"
+          if (-not (Test-Path $setup)) { throw 'Installer was not created.' }
+          if ((Get-AuthenticodeSignature $setup).Status -ne 'NotSigned') { throw 'Unexpected installer signature.' }
+          $artifacts = Join-Path $env:SRC 'artifacts'
+          New-Item -ItemType Directory -Force $artifacts | Out-Null
+          Copy-Item $setup (Join-Path $artifacts 'AyuGram.exe')
+          $portable = Join-Path $env:RUNNER_TEMP 'AyuGram'
+          New-Item -ItemType Directory -Force (Join-Path $portable 'TelegramForcePortable') | Out-Null
+          New-Item -ItemType Directory -Force (Join-Path $portable 'modules\x64\d3d') | Out-Null
+          Copy-Item $binary (Join-Path $portable 'AyuGram.exe')
+          Copy-Item $d3d (Join-Path $portable 'modules\x64\d3d\d3dcompiler_47.dll')
+          & 7z a -mx9 (Join-Path $artifacts 'AyuGram.zip') $portable
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 7z t (Join-Path $artifacts 'AyuGram.zip')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $install = Join-Path $env:RUNNER_TEMP 'installed-AyuGram'
+          $process = Start-Process (Join-Path $artifacts 'AyuGram.exe') -Wait -PassThru -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$install")
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+          if (-not (Test-Path (Join-Path $install 'AyuGram.exe'))) { throw 'Installed application is missing.' }
+          if (Test-Path (Join-Path $install 'Updater.exe')) { throw 'Installer included the updater.' }
+          if (-not (Test-Path (Join-Path $install 'modules\x64\d3d\d3dcompiler_47.dll'))) { throw 'Installer omitted the D3D module.' }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          path: |
+            ${{ env.SRC }}\artifacts\AyuGram.exe
+            ${{ env.SRC }}\artifacts\AyuGram.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  linux:
+    name: Linux x86_64 Release
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      actions: write
+      packages: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CCACHE_MAXSIZE: 3G
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: pch_defines,time_macros
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          submodules: recursive
+          path: AyuGramDesktop
+          persist-credentials: false
+      - name: Resolve build image
+        id: image
+        env:
+          # Must stay identical to the hash in linux-image.yml.
+          HASH: ${{ hashFiles('AyuGramDesktop/Telegram/build/docker/centos_env/Dockerfile', 'AyuGramDesktop/Telegram/build/docker/centos_env/gen_dockerfile.py', 'AyuGramDesktop/Telegram/build/docker/centos_env/centos_env/__init__.py', 'AyuGramDesktop/Telegram/build/docker/centos_env/pyproject.toml', 'AyuGramDesktop/Telegram/build/docker/centos_env/poetry.lock') }}
+        run: |
+          test -n "$HASH"
+          repo="${GITHUB_REPOSITORY,,}"
+          echo "ref=ghcr.io/$repo/centos-env:$HASH" >> "$GITHUB_OUTPUT"
+      - name: Pull build image
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if ! docker pull "$IMAGE"; then
+            echo "Build image $IMAGE is missing. Run the 'Linux build image' workflow for this release branch first." >&2
+            exit 1
+          fi
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/ccache
+          key: ccache-linux-x86_64-release-${{ needs.validate.outputs.sha }}
+          restore-keys: ccache-linux-x86_64-release-
+      - name: Build AyuGram
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+          TDESKTOP_API_ID: ${{ vars.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          mkdir -p "$CCACHE_DIR"
+          nproc
+          free -g
+          df -h
+          docker run --rm \
+            -u "$(id -u)" \
+            -v "$PWD/AyuGramDesktop:/usr/src/tdesktop" \
+            -v "$CCACHE_DIR:/var/cache/ccache" \
+            -e CCACHE_DIR=/var/cache/ccache \
+            -e CCACHE_MAXSIZE \
+            -e CCACHE_COMPILERCHECK \
+            -e CCACHE_SLOPPINESS \
+            -e TDESKTOP_API_ID \
+            -e TDESKTOP_API_HASH \
+            "$IMAGE" \
+            /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+            -D "TDESKTOP_API_ID=$TDESKTOP_API_ID" \
+            -D "TDESKTOP_API_HASH=$TDESKTOP_API_HASH" \
+            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
+            -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+      - name: Build statistics
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 AyuGramDesktop/Telegram/build/ninja_log_stats.py AyuGramDesktop/out/.ninja_log \
+            --title 'Linux x86_64 Release' --markdown-file "$GITHUB_STEP_SUMMARY"
+          df -h || true
+      - name: Drop superseded compiler caches
+        # Matches the save below, so a failed build still replaces its cache.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          KEEP: |
+            ${{ steps.compiler-cache.outputs.cache-primary-key }}
+          PREFIXES: ccache-linux-x86_64-release-
+        run: |
+          for prefix in $PREFIXES; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --limit 100 --json key --jq '.[].key' |
+              grep -vxF "$KEEP" | while read -r key; do gh cache delete --repo "$GITHUB_REPOSITORY" "$key"; done || true
+          done
+      - name: Save compiler cache
+        # Saved even when the build failed, so a retry resumes from its objects.
+        if: ${{ !cancelled() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ github.workspace }}/ccache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Verify and package Linux artifacts
+        env:
+          RELEASE: ${{ needs.validate.outputs.release }}
+        run: |
+          src=AyuGramDesktop
+          binary=$(find "$src/out" -maxdepth 2 -type f -name AyuGram | head -n 1)
+          test -n "$binary"
+          test -s "$binary"
+          info=$(file "$binary")
+          echo "$info"
+          grep -q 'ELF 64-bit' <<< "$info"
+          grep -q 'x86-64' <<< "$info"
+          test -z "$(find "$src/out" -maxdepth 2 -type f -name Updater)"
+          strip "$binary"
+
+          # One staging tree laid out like the installed system; the portable
+          # archive, the deb and the AppImage are all cut from it.
+          stage="$RUNNER_TEMP/stage"
+          rm -rf "$stage"
+          install -Dm755 "$binary" "$stage/usr/bin/AyuGram"
+          install -Dm644 "$src/lib/xdg/com.ayugram.desktop.desktop" "$stage/usr/share/applications/com.ayugram.desktop.desktop"
+          install -Dm644 "$src/lib/xdg/com.ayugram.desktop.metainfo.xml" "$stage/usr/share/metainfo/com.ayugram.desktop.metainfo.xml"
+          sed 's|@CMAKE_INSTALL_FULL_BINDIR@|/usr/bin|' "$src/lib/xdg/com.ayugram.desktop.service" > "$RUNNER_TEMP/dbus.service"
+          install -Dm644 "$RUNNER_TEMP/dbus.service" "$stage/usr/share/dbus-1/services/com.ayugram.desktop.service"
+          for size in 16 32 48 64 128 256 512; do
+            install -Dm644 "$src/Telegram/Resources/art/icon$size.png" "$stage/usr/share/icons/hicolor/${size}x${size}/apps/com.ayugram.desktop.png"
+          done
+          mkdir -p artifacts
+
+          # Portable archive: the binary plus the desktop integration files.
+          portable="$RUNNER_TEMP/portable"
+          rm -rf "$portable"
+          mkdir -p "$portable/AyuGram"
+          cp -a "$stage/usr/bin/AyuGram" "$portable/AyuGram/AyuGram"
+          cp -a "$stage/usr/share" "$portable/AyuGram/share"
+          tar -C "$portable" --owner=0 --group=0 -cJf artifacts/AyuGram.tar.xz AyuGram
+          tar -tJf artifacts/AyuGram.tar.xz | grep -qx 'AyuGram/AyuGram'
+          tar -tJf artifacts/AyuGram.tar.xz | grep -qx 'AyuGram/share/applications/com.ayugram.desktop.desktop'
+
+          # Debian and Ubuntu package. The binary links its libraries statically
+          # or loads them on demand, so only libc is a hard dependency.
+          deb="$RUNNER_TEMP/deb"
+          rm -rf "$deb"
+          mkdir -p "$deb"
+          cp -a "$stage/." "$deb/"
+          mkdir -p "$deb/DEBIAN"
+          find "$deb" -type d -exec chmod 755 {} +
+          installed_size=$(du -sk "$stage" | cut -f1)
+          cat > "$deb/DEBIAN/control" <<CONTROL
+          Package: ayugram-desktop
+          Version: $RELEASE
+          Architecture: amd64
+          Maintainer: AyuGram maintenance build <noreply@users.noreply.github.com>
+          Installed-Size: $installed_size
+          Section: net
+          Priority: optional
+          Depends: libc6 (>= 2.28)
+          Conflicts: ayugram-desktop-bin
+          Homepage: https://github.com/$GITHUB_REPOSITORY
+          Description: AyuGram Desktop, technical maintenance build
+           Telegram client with ghost mode and message history. This is not an
+           official upstream release and automatic updates are disabled.
+          CONTROL
+          dpkg-deb --root-owner-group --build "$deb" "artifacts/ayugram-desktop_${RELEASE}_amd64.deb"
+          dpkg-deb --info "artifacts/ayugram-desktop_${RELEASE}_amd64.deb"
+          dpkg-deb --contents "artifacts/ayugram-desktop_${RELEASE}_amd64.deb" | grep -q ' ./usr/bin/AyuGram$'
+
+          # AppImage. No D-Bus activation and no quit action: neither works
+          # from inside an AppImage.
+          appdir="$RUNNER_TEMP/AyuGram.AppDir"
+          rm -rf "$appdir"
+          mkdir -p "$appdir"
+          cp -a "$stage/usr" "$appdir/usr"
+          rm -f "$appdir/usr/share/dbus-1/services/com.ayugram.desktop.service"
+          sed -e '/^DBusActivatable=/d' -e '/^TryExec=/d' -e '/^Actions=/d' \
+            -e 's|^Exec=env DESKTOPINTEGRATION=1 AyuGram|Exec=AyuGram|' \
+            -e '/^\[Desktop Action quit\]/Q' \
+            "$src/lib/xdg/com.ayugram.desktop.desktop" > "$appdir/com.ayugram.desktop.desktop"
+          cp "$src/Telegram/Resources/art/icon256.png" "$appdir/com.ayugram.desktop.png"
+          ln -s usr/bin/AyuGram "$appdir/AppRun"
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          ARCH=x86_64 "$RUNNER_TEMP/appimagetool" --appimage-extract-and-run --no-appstream "$appdir" artifacts/AyuGram-x86_64.AppImage
+          chmod +x artifacts/AyuGram-x86_64.AppImage
+          mkdir "$RUNNER_TEMP/appimage-check"
+          (cd "$RUNNER_TEMP/appimage-check" && "$GITHUB_WORKSPACE/artifacts/AyuGram-x86_64.AppImage" --appimage-extract > /dev/null)
+          test -x "$RUNNER_TEMP/appimage-check/squashfs-root/usr/bin/AyuGram"
+          ls -l artifacts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-linux
+          path: artifacts/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  publish:
+    name: Publish GitHub Release
+    needs: [validate, source, windows, linux]
+    if: needs.validate.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.validate.outputs.version }}
+      RELEASE: ${{ needs.validate.outputs.release }}
+      SHA: ${{ needs.validate.outputs.sha }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+      - name: Generate PKGBUILD
+        run: |
+          sum=$(sha256sum release/AyuGram.tar.xz | cut -d' ' -f1)
+          rel=1
+          if [ "$RELEASE" != "$VERSION" ]; then rel="${RELEASE#"$VERSION"-}"; fi
+          cat > release/PKGBUILD <<'PKGBUILD'
+          # Generated by the release workflow for the exact binaries of this release.
+          pkgname=ayugram-desktop-maintained-bin
+          pkgver=@VERSION@
+          pkgrel=@REL@
+          pkgdesc='AyuGram Desktop, technical maintenance build'
+          arch=('x86_64')
+          url='https://github.com/@REPO@'
+          license=('GPL-3.0-only')
+          depends=('glibc')
+          provides=('ayugram-desktop')
+          conflicts=('ayugram-desktop' 'ayugram-desktop-bin')
+          options=('!strip')
+          source=("AyuGram-$pkgver-$pkgrel.tar.xz::https://github.com/@REPO@/releases/download/v@RELEASE@/AyuGram.tar.xz")
+          sha256sums=('@SUM@')
+
+          package() {
+            install -Dm755 "$srcdir/AyuGram/AyuGram" "$pkgdir/usr/bin/AyuGram"
+            install -d "$pkgdir/usr"
+            cp -a "$srcdir/AyuGram/share" "$pkgdir/usr/share"
+          }
+          PKGBUILD
+          sed -i -e "s|@VERSION@|$VERSION|" -e "s|@REL@|$rel|" -e "s|@REPO@|$GITHUB_REPOSITORY|g" \
+            -e "s|@RELEASE@|$RELEASE|" -e "s|@SUM@|$sum|" release/PKGBUILD
+          ! grep -q '@[A-Z]*@' release/PKGBUILD
+      - name: Verify files and checksums
+        run: |
+          cd release
+          expected=(AyuGram.exe AyuGram.zip AyuGram.tar.xz AyuGram-x86_64.AppImage "ayugram-desktop_${RELEASE}_amd64.deb" PKGBUILD "AyuGramDesktop-$RELEASE-full.tar.gz")
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 7
+          for file in "${expected[@]}"; do test -s "$file"; done
+          sha256sum "${expected[@]}" > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+      - name: Publish exact-head release
+        run: |
+          cat > "$RUNNER_TEMP/release-notes.md" <<NOTES
+          Technical maintenance build of AyuGram $VERSION from commit \`$SHA\`.
+          Changes are listed in [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/v$RELEASE/CHANGELOG.md).
+
+          - \`AyuGram.exe\`: Windows x64 installer
+          - \`AyuGram.zip\`: Windows x64 portable application
+          - \`AyuGram.tar.xz\`: Linux x86_64 portable application
+          - \`AyuGram-x86_64.AppImage\`: Linux x86_64 AppImage
+          - \`ayugram-desktop_${RELEASE}_amd64.deb\`: Debian and Ubuntu package
+          - \`PKGBUILD\`: Arch Linux package, \`makepkg -si\` in a directory holding it
+          - \`AyuGramDesktop-$RELEASE-full.tar.gz\`: source with pinned submodules
+
+          Automatic updates are disabled. Windows binaries are not
+          Authenticode-signed. Verify downloads with \`SHA256SUMS.txt\`.
+          NOTES
+          gh release create "v$RELEASE" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --title "AyuGram $RELEASE" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --latest
