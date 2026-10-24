@@ -378,6 +378,11 @@ void MessageView::clearRipple() {
 
 int MessageView::countWidth() const {
 	auto result = 0;
+	if (_miniSender && AyuSettings::getInstance().senderMiniAvatars()) {
+		// Ayu: the mini sender avatar shifts the whole line to the right,
+		// account for it so the topic jump pill fits the text.
+		result += st::dialogsMiniPreview + st::dialogsMiniPreviewRight;
+	}
 	if (!_senderCache.isEmpty()) {
 		result += _senderCache.maxWidth();
 		if (!_imagesCache.empty() && !_leftIcon) {
