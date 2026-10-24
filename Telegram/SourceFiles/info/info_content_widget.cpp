@@ -106,13 +106,10 @@ ContentWidget::ContentWidget(
 			refreshSearchField(shown);
 		}, lifetime());
 	} else {
-		// Ayu: repaint the card gradient once the avatar photo loads,
-		// when the gradient-extent setting is toggled, and whenever the
-		// content is scrolled (the gradient is anchored to the content).
-		AyuSettings::getInstance().profileGradientWholeCardValue(
-		) | rpl::on_next([this](bool) {
-			update();
-		}, lifetime());
+		// Ayu: repaint the card gradient tint when the avatar photo
+		// loads and whenever the content is scrolled (the tint is
+		// anchored to the content, and the scroll also drives the top
+		// bar's gradient fade).
 		scrollTopValue(
 		) | rpl::on_next([this](int top) {
 			_ayuScrollTop = top;
@@ -198,40 +195,29 @@ void ContentWidget::paintEvent(QPaintEvent *e) {
 			std::min(0, (rectSide.bottom() - _paintPadding.bottom())));
 		p.fillRect(rectSide + padding, _bg);
 	}
-	// Ayu: extend the avatar gradient from the profile top bar over the
-	// whole card: strongest at the top, smoothly fading into the usual
-	// background lower down. Can be limited back to the top bar only.
-	if (_controller->section().type() == Section::Type::Profile
-		&& AyuSettings::getInstance().profileGradientWholeCard()) {
-		if (const auto colors = Ui::AvatarGradientColorsFor(
-				_controller->peer())) {
-			// Ayu: the tint itself dissolves as the profile is scrolled
-			// down, in sync with the top bar.
-			const auto g = Ui::ProfileGradientFadeFor(_ayuScrollTop);
-			if (g > 0.) {
+	// Ayu: a gentle echo of the avatar gradient below the top bar.
+	// The gradient itself lives in the top bar and the tint dissolves
+	// into the stock background as the profile is scrolled down.
+	if (_controller->section().type() == Section::Type::Profile) {
+		const auto g = Ui::ProfileGradientFadeFor(_ayuScrollTop);
+		if (g > 0.) {
+			if (const auto colors = Ui::AvatarGradientColorsFor(
+					_controller->peer())) {
 				const auto fade = std::clamp(
-					int(height() * 0.7),
-					450,
-					1100);
-				// The gradient is anchored to the content, not the
-				// viewport, so it scrolls away together with the profile.
+					int(height() * 0.45),
+					280,
+					700);
 				const auto top = -_ayuScrollTop;
 				if (r.bottom() >= top && r.top() < top + fade) {
-					// Starts fully opaque - the same flat color the top
-					// bar gradient melts into - and smoothly dissolves
-					// into the plain background.
 					auto gtop = colors->second;
-					gtop.setAlphaF(g);
-					auto upper = colors->second;
-					upper.setAlphaF(0.78 * g);
+					gtop.setAlphaF(0.8 * g);
 					auto center = colors->first;
-					center.setAlphaF(0.43 * g);
+					center.setAlphaF(0.45 * g);
 					auto low = colors->first;
 					low.setAlphaF(0.);
 					auto grad = QLinearGradient(0, top, 0, top + fade);
 					grad.setColorAt(0.0, gtop);
-					grad.setColorAt(0.3, upper);
-					grad.setColorAt(0.65, center);
+					grad.setColorAt(0.45, center);
 					grad.setColorAt(1.0, low);
 					auto area = QRect(0, top, width(), fade).intersected(r);
 					p.fillRect(area, QBrush(grad));

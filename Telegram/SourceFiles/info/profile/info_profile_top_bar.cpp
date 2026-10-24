@@ -507,10 +507,6 @@ TopBar::TopBar(
 	}
 
 	bindStatus();
-	AyuSettings::getInstance().profileGradientWholeCardValue(
-	) | rpl::on_next([=] {
-		update();
-	}, lifetime());
 	Ui::ProfileGradientScrollEvents(
 	) | rpl::filter([=](const Ui::ProfileGradientScroll &event) {
 		return event.peerBareId == _peer->id.value;
@@ -3014,19 +3010,14 @@ void TopBar::paintEvent(QPaintEvent *e) {
 		const auto y = (height()
 			- _cachedGradient.height() / style::DevicePixelRatio())
 				/ 2;
-		// Ayu: the gradient dissolves as the profile is scrolled down
-		// (in sync with the whole-card gradient behind the content).
-		// With the whole-card gradient on, the bar simply melts into the
-		// same color the card starts with; otherwise the bottom edge
-		// softly fades into the plain background.
+		// Ayu: the gradient dissolves into the stock background as the
+		// profile is scrolled down, and near the top its bottom edge
+		// softly melts into the content below.
 		const auto g = _ayuGradientFade;
 		if (g <= 0.) {
 			paintEdges(p, clipBounds);
 		} else {
-			const auto ayuColors = Ui::AvatarGradientColorsFor(_peer);
-			const auto wholeCard = ayuColors.has_value()
-				&& AyuSettings::getInstance().profileGradientWholeCard();
-			const auto band = (!wholeCard && g >= 0.99)
+			const auto band = (g >= 0.99)
 				? std::min(height(), int(style::ConvertScale(46)))
 				: 0;
 			const auto rows = std::max((band + 1) / 2, 1);

@@ -448,12 +448,6 @@ void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = &AyuSettings::setProfileGradientFromAvatar,
 	});
 	ayu.addSettingToggle({
-		.id = u"ayu/profileGradientWholeCard"_q,
-		.title = tr::ayu_ProfileGradientWholeCard(),
-		.getter = &AyuSettings::profileGradientWholeCard,
-		.setter = &AyuSettings::setProfileGradientWholeCard,
-	});
-	ayu.addSettingToggle({
 		.id = u"ayu/selectScrollX2"_q,
 		.title = tr::ayu_SelectionScrollX2(),
 		.getter = &AyuSettings::selectScrollX2,

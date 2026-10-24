@@ -325,7 +325,6 @@ public:
 	[[nodiscard]] unsigned int caretCustomColor() const { return _caretCustomColor.current(); }
 	[[nodiscard]] int scrollSpeed() const { return _scrollSpeed.current(); }
 	[[nodiscard]] int wheelScrollStep() const { return _wheelScrollStep.current(); }
-	[[nodiscard]] bool profileGradientWholeCard() const { return _profileGradientWholeCard.current(); }
 	[[nodiscard]] bool selectScrollX2() const { return _selectScrollX2.current(); }
 	[[nodiscard]] bool senderMiniAvatars() const { return _senderMiniAvatars.current(); }
 	[[nodiscard]] bool onlineIndicator() const { return _onlineIndicator.current(); }
@@ -432,7 +431,6 @@ public:
 	void setCaretCustomColor(unsigned int rgb);
 	void setScrollSpeed(int val);
 	void setWheelScrollStep(int val);
-	void setProfileGradientWholeCard(bool val);
 	void setSelectScrollX2(bool val);
 	void setSenderMiniAvatars(bool val);
 	void setOnlineIndicator(bool val);
@@ -560,7 +558,6 @@ public:
 	[[nodiscard]] rpl::producer<bool> caretAccentValue() const { return _caretAccent.value(); }
 	[[nodiscard]] rpl::producer<unsigned int> caretCustomColorValue() const { return _caretCustomColor.value(); }
 	[[nodiscard]] rpl::producer<int> scrollSpeedValue() const { return _scrollSpeed.value(); }
-	[[nodiscard]] rpl::producer<bool> profileGradientWholeCardValue() const { return _profileGradientWholeCard.value(); }
 	[[nodiscard]] rpl::producer<bool> selectScrollX2Value() const { return _selectScrollX2.value(); }
 	[[nodiscard]] rpl::producer<bool> senderMiniAvatarsValue() const { return _senderMiniAvatars.value(); }
 	[[nodiscard]] rpl::producer<bool> onlineIndicatorValue() const { return _onlineIndicator.value(); }
@@ -576,7 +573,6 @@ public:
 	[[nodiscard]] rpl::producer<bool> caretAccentChanges() const { return _caretAccent.changes(); }
 	[[nodiscard]] rpl::producer<unsigned int> caretCustomColorChanges() const { return _caretCustomColor.changes(); }
 	[[nodiscard]] rpl::producer<int> scrollSpeedChanges() const { return _scrollSpeed.changes(); }
-	[[nodiscard]] rpl::producer<bool> profileGradientWholeCardChanges() const { return _profileGradientWholeCard.changes(); }
 	[[nodiscard]] rpl::producer<bool> selectScrollX2Changes() const { return _selectScrollX2.changes(); }
 	[[nodiscard]] rpl::producer<bool> senderMiniAvatarsChanges() const { return _senderMiniAvatars.changes(); }
 	[[nodiscard]] rpl::producer<bool> onlineIndicatorChanges() const { return _onlineIndicator.changes(); }
@@ -752,7 +748,6 @@ private:
 	rpl::variable<unsigned int> _caretCustomColor = 0;
 	rpl::variable<int> _scrollSpeed = 50;
 	rpl::variable<int> _wheelScrollStep = 100;
-	rpl::variable<bool> _profileGradientWholeCard = true;
 	rpl::variable<bool> _selectScrollX2 = false;
 	rpl::variable<bool> _senderMiniAvatars = false;
 	rpl::variable<bool> _onlineIndicator = false;
