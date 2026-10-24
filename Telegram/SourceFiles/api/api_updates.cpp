@@ -80,6 +80,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 // AyuGram includes
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_worker.h"
+#include "ayu/features/activity/activity_feed.h"
 
 
 namespace Api {
@@ -1144,6 +1145,12 @@ void Updates::handleSendActionUpdate(
 		}
 		return;
 	}
+	Ayu::ActivityFeed::HandleSendAction(
+		session(),
+		from->asUser(),
+		peer,
+		action,
+		when);
 	session().data().sendActionManager().registerFor(
 		history,
 		rootId,

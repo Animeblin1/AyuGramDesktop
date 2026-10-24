@@ -97,6 +97,17 @@ void BuildAvatars(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	ayu.addSectionDivider();
 }
 
+void BuildActivity(SectionBuilder &builder, AyuSectionBuilder &ayu) {
+	ayu.addSettingToggle({
+		.id = u"ayu/liveUserActivity"_q,
+		.title = tr::ayu_LiveUserActivity(),
+		.getter = &AyuSettings::liveUserActivity,
+		.setter = &AyuSettings::setLiveUserActivity,
+	});
+
+	ayu.addSectionDivider();
+}
+
 void BuildGroupsAndChannels(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	auto *settings = &AyuSettings::getInstance();
 
@@ -483,6 +494,7 @@ const auto kMeta = BuildHelper({
 	builder.addSkip();
 	BuildStickersAndEmoji(builder, ayu);
 	BuildAvatars(builder, ayu);
+	BuildActivity(builder, ayu);
 	BuildGroupsAndChannels(builder, ayu);
 	BuildMarks(builder, ayu, previewState);
 	BuildWideMessagesMultiplier(builder, ayu, previewState);

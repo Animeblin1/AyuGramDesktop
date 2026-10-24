@@ -329,6 +329,7 @@ public:
 	[[nodiscard]] bool senderMiniAvatars() const { return _senderMiniAvatars.current(); }
 	[[nodiscard]] bool onlineIndicator() const { return _onlineIndicator.current(); }
 	[[nodiscard]] bool inlineCalculator() const { return _inlineCalculator.current(); }
+	[[nodiscard]] bool liveUserActivity() const { return _liveUserActivity.current(); }
 	[[nodiscard]] bool removeMessageTail() const { return _removeMessageTail.current(); }
 	[[nodiscard]] bool disableNotificationsDelay() const { return _disableNotificationsDelay.current(); }
 	[[nodiscard]] bool localPremium() const { return _localPremium.current(); }
@@ -435,6 +436,7 @@ public:
 	void setSenderMiniAvatars(bool val);
 	void setOnlineIndicator(bool val);
 	void setInlineCalculator(bool val);
+	void setLiveUserActivity(bool val);
 	void setRemoveMessageTail(bool val);
 	void setDisableNotificationsDelay(bool val);
 	void setLocalPremium(bool val);
@@ -752,6 +754,7 @@ private:
 	rpl::variable<bool> _senderMiniAvatars = false;
 	rpl::variable<bool> _onlineIndicator = false;
 	rpl::variable<bool> _inlineCalculator = true;
+	rpl::variable<bool> _liveUserActivity = true;
 	rpl::variable<bool> _removeMessageTail = false;
 	rpl::variable<bool> _disableNotificationsDelay = false;
 	rpl::variable<bool> _localPremium = false;

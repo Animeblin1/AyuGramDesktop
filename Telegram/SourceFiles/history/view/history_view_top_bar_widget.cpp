@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "history/history.h"
 #include "history/view/history_view_send_action.h"
+#include "ayu/features/activity/activity_feed.h"
 #include "boxes/add_contact_box.h"
 #include "ui/boxes/confirm_box.h"
 #include "info/info_memento.h"
@@ -154,6 +155,14 @@ TopBarWidget::TopBarWidget(
 	Lang::Updated(
 	) | rpl::on_next([=] {
 		refreshLang();
+	}, lifetime());
+
+	// Ayu: live activity replaces the online status line - refresh on
+	// every activity change and re-evaluate while it is active.
+	Ayu::ActivityFeed::ActivityChanged(
+	) | rpl::on_next([=] {
+		updateOnlineDisplay();
+		updateOnlineDisplayIn(2000);
 	}, lifetime());
 
 	_forward->setClickedCallback([=] { _forwardSelection.fire({}); });
