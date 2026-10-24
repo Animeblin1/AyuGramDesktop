@@ -738,12 +738,6 @@ void AyuSettings::setCaretCustomColor(unsigned int rgb) {
 	save();
 }
 
-void AyuSettings::setProfileGradientWholeCard(bool val) {
-	if (_profileGradientWholeCard.current() == val) return;
-	_profileGradientWholeCard = val;
-	save();
-}
-
 void AyuSettings::setSelectScrollX2(bool val) {
 	if (_selectScrollX2.current() == val) return;
 	_selectScrollX2 = val;
@@ -1240,7 +1234,6 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"caretCustomColor", s._caretCustomColor.current()},
 		{"scrollSpeed", s._scrollSpeed.current()},
 		{"wheelScrollStep", s._wheelScrollStep.current()},
-		{"profileGradientWholeCard", s._profileGradientWholeCard.current()},
 		{"selectScrollX2", s._selectScrollX2.current()},
 		{"senderMiniAvatars", s._senderMiniAvatars.current()},
 		{"onlineIndicator", s._onlineIndicator.current()},
@@ -1429,7 +1422,6 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._scrollSpeed = j.value("scrollSpeed", defaults._scrollSpeed.current());
 	s._wheelScrollStep = j.value("wheelScrollStep", defaults._wheelScrollStep.current());
 	s._profileGradientFromAvatar = j.value("profileGradientFromAvatar", defaults._profileGradientFromAvatar.current());
-	s._profileGradientWholeCard = j.value("profileGradientWholeCard", defaults._profileGradientWholeCard.current());
 	s._selectScrollX2 = j.value("selectScrollX2", defaults._selectScrollX2.current());
 	s._senderMiniAvatars = j.value("senderMiniAvatars", defaults._senderMiniAvatars.current());
 	s._onlineIndicator = j.value("onlineIndicator", defaults._onlineIndicator.current());
