@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #pragma once
 
 #include <any>
+#include "ui/userpic_view.h"
 
 class Image;
 class HistoryItem;
@@ -21,7 +22,6 @@ struct DialogsMiniIcon;
 
 namespace Ui {
 class SpoilerAnimation;
-struct PeerUserpicView;
 } // namespace Ui
 
 namespace Data {
