@@ -21,6 +21,7 @@
 #include "rpl/combine.h"
 #include "window/window_controller.h"
 
+#include <algorithm>
 #include <fstream>
 #include <QApplication>
 
@@ -1373,11 +1374,9 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._blinkMs = j.value("blinkMs", defaults._blinkMs.current());
 	s._caretAccent = j.value("caretAccent", defaults._caretAccent.current());
 	s._scrollSpeed = j.value("scrollSpeed", defaults._scrollSpeed.current());
-	validateRange(s._caretSpeed, 0, 100, defaults._caretSpeed);
-	validateRange(s._caretBlink, 0, 1, defaults._caretBlink);
-	validateRange(s._blinkMs, 200, 1000, defaults._blinkMs);
-	validateRange(s._caretAccent, 0, 1, defaults._caretAccent);
-	validateRange(s._scrollSpeed, 0, 100, defaults._scrollSpeed);
+	s._caretSpeed = std::clamp(s._caretSpeed.current(), 0, 100);
+	s._blinkMs = std::clamp(s._blinkMs.current(), 200, 1000);
+	s._scrollSpeed = std::clamp(s._scrollSpeed.current(), 0, 100);
 	s._singleCornerRadius = j.value("singleCornerRadius", defaults._singleCornerRadius.current());
 	s._streamerMode = j.value("streamerMode", defaults._streamerMode.current());
 
