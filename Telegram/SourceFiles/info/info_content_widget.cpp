@@ -107,9 +107,15 @@ ContentWidget::ContentWidget(
 		}, lifetime());
 	} else {
 		// Ayu: repaint the card gradient once the avatar photo loads,
-		// and when the gradient-extent setting is toggled.
+		// when the gradient-extent setting is toggled, and whenever the
+		// content is scrolled (the gradient is anchored to the content).
 		AyuSettings::getInstance().profileGradientWholeCardValue(
 		) | rpl::on_next([this](bool) {
+			update();
+		}, lifetime());
+		scrollTopValue(
+		) | rpl::on_next([this](int top) {
+			_ayuScrollTop = top;
 			update();
 		}, lifetime());
 		_controller->peer()->session().downloaderTaskFinished(
@@ -199,20 +205,22 @@ void ContentWidget::paintEvent(QPaintEvent *e) {
 				int(height() * 0.6),
 				300,
 				700);
-			if (r.top() < fade) {
-				auto top = colors->second;
-				top.setAlpha(185);
+			// The gradient is anchored to the content, not the viewport,
+			// so it scrolls away together with the profile.
+			const auto top = -_ayuScrollTop;
+			if (r.bottom() >= top && r.top() < top + fade) {
+				auto gtop = colors->second;
+				gtop.setAlpha(185);
 				auto center = colors->first;
 				center.setAlpha(120);
 				auto low = colors->first;
 				low.setAlpha(0);
-				auto g = QLinearGradient(0, 0, 0, fade);
-				g.setColorAt(0.0, top);
+				auto g = QLinearGradient(0, top, 0, top + fade);
+				g.setColorAt(0.0, gtop);
 				g.setColorAt(0.4, center);
 				g.setColorAt(1.0, low);
-				p.fillRect(
-					QRect(0, 0, width(), std::min(r.bottom() + 1, fade)),
-					QBrush(g));
+				auto area = QRect(0, top, width(), fade).intersected(r);
+				p.fillRect(area, QBrush(g));
 			}
 		}
 	}
