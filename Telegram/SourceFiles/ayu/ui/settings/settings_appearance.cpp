@@ -34,6 +34,7 @@
 
 #include <QtCore/QTimer>
 #include <QtWidgets/QColorDialog>
+#include <QtWidgets/QTextEdit>
 
 namespace Settings {
 
