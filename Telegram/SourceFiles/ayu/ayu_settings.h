@@ -324,6 +324,7 @@ public:
 	[[nodiscard]] bool caretAccent() const { return _caretAccent.current(); }
 	[[nodiscard]] unsigned int caretCustomColor() const { return _caretCustomColor.current(); }
 	[[nodiscard]] int scrollSpeed() const { return _scrollSpeed.current(); }
+	[[nodiscard]] int wheelScrollStep() const { return _wheelScrollStep.current(); }
 	[[nodiscard]] bool profileGradientWholeCard() const { return _profileGradientWholeCard.current(); }
 	[[nodiscard]] bool selectScrollX2() const { return _selectScrollX2.current(); }
 	[[nodiscard]] bool senderMiniAvatars() const { return _senderMiniAvatars.current(); }
@@ -430,6 +431,7 @@ public:
 	void setCaretAccent(bool val);
 	void setCaretCustomColor(unsigned int rgb);
 	void setScrollSpeed(int val);
+	void setWheelScrollStep(int val);
 	void setProfileGradientWholeCard(bool val);
 	void setSelectScrollX2(bool val);
 	void setSenderMiniAvatars(bool val);
@@ -749,6 +751,7 @@ private:
 	rpl::variable<bool> _caretAccent = false;
 	rpl::variable<unsigned int> _caretCustomColor = 0;
 	rpl::variable<int> _scrollSpeed = 50;
+	rpl::variable<int> _wheelScrollStep = 100;
 	rpl::variable<bool> _profileGradientWholeCard = true;
 	rpl::variable<bool> _selectScrollX2 = false;
 	rpl::variable<bool> _senderMiniAvatars = false;

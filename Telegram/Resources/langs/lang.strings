@@ -9481,6 +9481,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_OnlineIndicator" = "Online Indicator on Avatars";
 "ayu_AvatarsHeader" = "Avatars";
 "ayu_InlineCalculator" = "Inline Calculator (type \"=2+2\" in input)";
+"ayu_WheelScrollStep" = "Wheel step, %";
 "ayu_RemoveMessageTail" = "Remove Message Tail";
 "ayu_HideShareButton" = "Hide Side \"Share\" Button";
 "ayu_ChatFoldersHeader" = "Chat Folders";
