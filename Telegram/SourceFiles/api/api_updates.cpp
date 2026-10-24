@@ -81,6 +81,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_worker.h"
 #include "ayu/features/activity/activity_feed.h"
+#include "lang/lang_keys.h"
+#include "lang_auto.h"
 
 
 namespace Api {
