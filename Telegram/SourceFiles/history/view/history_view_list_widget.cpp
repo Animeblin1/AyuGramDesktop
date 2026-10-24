@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/algorithm.h"
 #include "base/qt/qt_key_modifiers.h"
 
+#include <algorithm>
 #include <cmath>
 #include "base/qt/qt_common_adapters.h"
 #include "history/history.h"
@@ -770,9 +771,9 @@ ListWidget::ListWidget(
 
 	_selectScroll.scrolls(
 	) | rpl::on_next([=](int d) {
-		// Ayu: gradual acceleration of the selection edge-scroll from
-		// the stock speed up to x1.5 / x2 (setting). Holding the cursor
-		// at the edge keeps the reached speed, like in stock Telegram.
+		// Ayu: accelerated selection edge-scroll. The stock manager tops
+		// out at 37px/15ms and crawls near the edge, so add a head start,
+		// a quick ramp (~250ms) and the x1.5 / x2 multiplier.
 		const auto boost = AyuSettings::getInstance().selectScrollX2()
 			? 2.0
 			: 1.5;
@@ -780,7 +781,10 @@ ListWidget::ListWidget(
 			|| base::OppositeSigns(_selectBoostSpeed, double(d))) {
 			_selectBoostSpeed = d;
 		}
-		_selectBoostSpeed += (d * boost - _selectBoostSpeed) * 0.10;
+		const auto target = std::min(
+			std::max((double(d) + 6.) * boost, 12.),
+			90.);
+		_selectBoostSpeed += (target - _selectBoostSpeed) * 0.15;
 		delegate->listScrollTo(
 			_visibleTop + int(std::lround(_selectBoostSpeed)),
 			false);
