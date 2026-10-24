@@ -485,6 +485,12 @@ void MessageView::paint(
 					y + size - dot,
 					dot,
 					dot));
+				p.setPen(context.active
+					? st::dialogsTextFgActive
+					: context.selected
+					? st::dialogsTextFgOver
+					: st::dialogsTextFg);
+				p.setBrush(Qt::NoBrush);
 			}
 		}
 		rect.setLeft(rect.x()
