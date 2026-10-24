@@ -1373,11 +1373,11 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._blinkMs = j.value("blinkMs", defaults._blinkMs.current());
 	s._caretAccent = j.value("caretAccent", defaults._caretAccent.current());
 	s._scrollSpeed = j.value("scrollSpeed", defaults._scrollSpeed.current());
-	validateRange(_caretSpeed, 0, 100, defaults._caretSpeed);
-	validateRange(_caretBlink, 0, 1, defaults._caretBlink);
-	validateRange(_blinkMs, 200, 1000, defaults._blinkMs);
-	validateRange(_caretAccent, 0, 1, defaults._caretAccent);
-	validateRange(_scrollSpeed, 0, 100, defaults._scrollSpeed);
+	validateRange(s._caretSpeed, 0, 100, defaults._caretSpeed);
+	validateRange(s._caretBlink, 0, 1, defaults._caretBlink);
+	validateRange(s._blinkMs, 200, 1000, defaults._blinkMs);
+	validateRange(s._caretAccent, 0, 1, defaults._caretAccent);
+	validateRange(s._scrollSpeed, 0, 100, defaults._scrollSpeed);
 	s._singleCornerRadius = j.value("singleCornerRadius", defaults._singleCornerRadius.current());
 	s._streamerMode = j.value("streamerMode", defaults._streamerMode.current());
 
