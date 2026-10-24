@@ -29,6 +29,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Ui {
 namespace {
 
+rpl::event_stream<ProfileGradientScroll> &ProfileGradientScrollStream() {
+	static rpl::event_stream<ProfileGradientScroll> stream;
+	return stream;
+}
+
+float ProfileGradientFadeValue(int top) {
+	return std::clamp(1. - top / 600., 0., 1.);
+}
+
 void PrepareImage(
 		QImage &image,
 		not_null<Ui::Text::CustomEmoji*> emoji,
@@ -377,4 +386,17 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 	cached.emplace(key, result);
 	return result;
 }
+
+void PublishProfileGradientScroll(ProfileGradientScroll scroll) {
+	ProfileGradientScrollStream().fire(std::move(scroll));
+}
+
+rpl::producer<ProfileGradientScroll> ProfileGradientScrollEvents() {
+	return ProfileGradientScrollStream().events();
+}
+
+float ProfileGradientFadeFor(int top) {
+	return ProfileGradientFadeValue(top);
+}
+
 } // namespace Ui

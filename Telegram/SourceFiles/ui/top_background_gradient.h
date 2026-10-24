@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "rpl/rpl.h"
+
 namespace Data {
 struct UniqueGift;
 struct UniqueGiftBackdrop;
@@ -48,6 +50,22 @@ struct PatternPoint {
 
 [[nodiscard]] std::optional<std::pair<QColor, QColor>> AvatarGradientColorsFor(
 	not_null<PeerData*> peer);
+
+// Ayu: the avatar-derived profile gradient fades out as the profile
+// content is scrolled down. The scroll widget publishes the offset and
+// the top bar picks it up, both keyed by the peer so several profile
+// views (multiple windows) don't cross-talk.
+struct ProfileGradientScroll {
+	uint64 peerBareId = 0;
+	int top = 0;
+};
+
+void PublishProfileGradientScroll(ProfileGradientScroll scroll);
+
+[[nodiscard]] rpl::producer<ProfileGradientScroll> ProfileGradientScrollEvents();
+
+// 1.0 at the very top, smoothly reaching 0 after ~600px of scroll.
+[[nodiscard]] float ProfileGradientFadeFor(int top);
 
 [[nodiscard]] const std::vector<PatternPoint> &PatternBgPoints();
 [[nodiscard]] const std::vector<PatternPoint> &PatternBgPointsSmall();
