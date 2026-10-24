@@ -677,6 +677,11 @@ void AyuSettings::setSmoothScroll(bool val) {
 	AyuUiSettings::setSmoothScroll(val);
 	save();
 }
+void AyuSettings::setProfileGradientFromAvatar(bool val) {
+	if (_profileGradientFromAvatar.current() == val) return;
+	_profileGradientFromAvatar = val;
+	save();
+}
 
 void AyuSettings::setRemoveMessageTail(bool val) {
 	if (_removeMessageTail.current() == val) return;
@@ -1141,6 +1146,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"materialSwitches", s._materialSwitches.current()},
 		{"smoothCaret", s._smoothCaret.current()},
 		{"smoothScroll", s._smoothScroll.current()},
+		{"profileGradientFromAvatar", s._profileGradientFromAvatar.current()},
 		{"removeMessageTail", s._removeMessageTail.current()},
 		{"disableNotificationsDelay", s._disableNotificationsDelay.current()},
 		{"localPremium", s._localPremium.current()},

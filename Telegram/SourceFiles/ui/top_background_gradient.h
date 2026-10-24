@@ -46,6 +46,9 @@ struct PatternPoint {
 	not_null<PeerData*> peer,
 	QPoint offset = QPoint());
 
+[[nodiscard]] std::optional<std::pair<QColor, QColor>> AvatarGradientColorsFor(
+	not_null<PeerData*> peer);
+
 [[nodiscard]] const std::vector<PatternPoint> &PatternBgPoints();
 [[nodiscard]] const std::vector<PatternPoint> &PatternBgPointsSmall();
 

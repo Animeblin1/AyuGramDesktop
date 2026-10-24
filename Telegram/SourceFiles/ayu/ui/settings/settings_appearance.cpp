@@ -210,6 +210,12 @@ void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = &AyuSettings::setSmoothScroll,
 	});
 	ayu.addSettingToggle({
+		.id = u"ayu/profileGradientFromAvatar"_q,
+		.title = tr::ayu_ProfileGradientFromAvatar(),
+		.getter = &AyuSettings::profileGradientFromAvatar,
+		.setter = &AyuSettings::setProfileGradientFromAvatar,
+	});
+	ayu.addSettingToggle({
 		.id = u"ayu/disableCustomBackgrounds"_q,
 		.altIds = { u"ayu/customThemes"_q },
 		.title = tr::ayu_DisableCustomBackgrounds(),

@@ -778,7 +778,8 @@ void TopBar::updateCollectibleStatus() {
 	const auto collectible = effectiveCollectible();
 	const auto colorProfile = effectiveColorProfile();
 	_hasGradientBg = (collectible != nullptr)
-		|| (colorProfile && colorProfile->bg.size() > 1);
+		|| (colorProfile && colorProfile->bg.size() > 1)
+		|| AvatarGradientColorsFor(_peer).has_value();
 	_solidBg = (colorProfile && colorProfile->bg.size() == 1)
 		? std::make_optional(colorProfile->bg.front())
 		: std::nullopt;
@@ -851,7 +852,9 @@ void TopBar::updateCollectibleStatus() {
 		_verifiedSt = nullptr;
 	}
 	update();
-	adjustColors(collectible
+	adjustColors(AvatarGradientColorsFor(_peer)
+		? std::optional<QColor>(AvatarGradientColorsFor(_peer)->second)
+		: collectible
 		? std::optional<QColor>(collectible->edgeColor)
 		: (colorProfile && !colorProfile->bg.empty())
 		? std::optional<QColor>(colorProfile->bg.front())
@@ -2932,12 +2935,20 @@ void TopBar::paintEvent(QPaintEvent *e) {
 	if (_hasGradientBg && _cachedGradient.isNull()) {
 		const auto collectible = effectiveCollectible();
 		const auto colorProfile = effectiveColorProfile();
+		const auto ayuAvatar = AvatarGradientColorsFor(_peer);
 		const auto offset = QPoint(
 			0,
 			_hasActions
 				? -st::infoProfileTopBarPhotoBgShift
 				: -st::infoProfileTopBarPhotoBgNoActionsShift);
-		if (collectible) {
+		if (ayuAvatar) {
+			_cachedGradient = Ui::CreateTopBgGradient(
+				QSize(width(), maximumHeight()),
+				ayuAvatar->first,
+				ayuAvatar->second,
+				false,
+				offset);
+		} else if (collectible) {
 			_cachedGradient = Ui::CreateTopBgGradient(
 				QSize(width(), maximumHeight()),
 				collectible->centerColor,

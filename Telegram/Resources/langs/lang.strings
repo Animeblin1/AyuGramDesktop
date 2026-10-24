@@ -8846,6 +8846,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_DisableCustomBackgrounds" = "Disable Custom Backgrounds";
 "ayu_HidePremiumStatuses" = "Hide Premium Statuses";
 "ayu_SmoothScroll" = "Smooth Scroll";
+"ayu_ProfileGradientFromAvatar" = "Profile Gradient From Avatar";
+"ayu_ProfileGradientFromAvatarDescription" = "Profile header gradient is built from the avatar colors";
 "ayu_DisableNotificationsDelay" = "Disable Notify Delay";
 "ayu_LocalPremium" = "Local Telegram Premium";
 "ayu_DisplayGhostStatus" = "Display Ghost Mode Status";
