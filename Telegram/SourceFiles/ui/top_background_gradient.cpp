@@ -6,6 +6,9 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/top_background_gradient.h"
+
+#include <algorithm>
+
 #include "ayu/ayu_settings.h"
 
 #include "apiwrap.h"
@@ -56,85 +59,6 @@ void PrepareImage(
 	});
 }
 
-using AvatarGradient = std::optional<
-	std::pair<QColor, QColor>>;
-
-AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
-	const auto &settings = AyuSettings::getInstance();
-	if (!settings.profileGradientFromAvatar()) {
-		return std::nullopt;
-	}
-	const auto key = (uint64(uint64(peer->id().value) << 24)
-		^ peer->userpicPhotoId());
-	static auto cached = base::flat_map<uint64, AvatarGradient>();
-	const auto it = cached.find(key);
-	if (it != cached.end()) {
-		return it->second;
-	}
-	auto result = AvatarGradient();
-	auto view = peer->createUserpicView();
-	if (!peer->useEmptyUserpic(view)) {
-		auto image = PeerData::GenerateUserpicImage(
-			peer,
-			view,
-			64,
-			std::optional<int>(0));
-		if (!image.isNull()) {
-			image = std::move(image).scaled(
-				16,
-				16,
-				Qt::IgnoreAspectRatio,
-				Qt::SmoothTransformation).convertToFormat(QImage::Format_ARGB32);
-			const auto prettify = [](QColor color, bool center) {
-				qreal h = 0, s = 0, v = 0, a = 0;
-				color.getHsvF(&h, &s, &v, &a);
-				if (h >= 0) {
-					s = std::clamp(s, 0.45, 0.85);
-					v = center
-						? std::clamp(v, 0.55, 0.85)
-						: std::clamp(v * 0.85, 0.30, 0.65);
-					color.setHsvF(h, s, v, 1.0);
-				}
-				return color;
-			};
-			qint64 cr = 0, cg = 0, cb = 0, cn = 0;
-			qint64 er = 0, eg = 0, eb = 0, en = 0;
-			for (auto y = 0; y != 16; ++y) {
-				for (auto x = 0; x != 16; ++x) {
-					const auto px = image.pixel(x, y);
-					if (qAlpha(px) < 32) {
-						continue;
-					}
-					er += qRed(px);
-					eg += qGreen(px);
-					eb += qBlue(px);
-					++en;
-					if (x >= 4 && x < 12 && y >= 4 && y < 12) {
-						cr += qRed(px);
-						cg += qGreen(px);
-						cb += qBlue(px);
-						++cn;
-					}
-				}
-			}
-			if (cn && en) {
-				const auto center = prettify(
-					QColor(cr / cn, cg / cn, cb / cn),
-					true);
-				const auto edge = prettify(
-					QColor(er / en, eg / en, eb / en),
-					false);
-				qreal hs = 0, ss = 0, vs = 0, as = 0;
-				edge.getHsvF(&hs, &ss, &vs, &as);
-				if (ss >= 0.2) {
-					result = std::make_pair(center, edge);
-				}
-			}
-		}
-	}
-	cached.emplace(key, result);
-	return result;
-}
 } // namespace
 
 QImage CreateTopBgGradient(
@@ -376,9 +300,9 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 	if (!settings.profileGradientFromAvatar()) {
 		return std::nullopt;
 	}
-	const auto key = (uint64(uint64(peer->id().value) << 24)
-		^ peer->userpicPhotoId());
-	static auto cached = base::flat_map<uint64, AvatarGradient>();
+	const auto key = ((quint64(peer->id().value) << 24)
+		^ quint64(peer->userpicPhotoId()));
+	static auto cached = base::flat_map<quint64, AvatarGradient>();
 	const auto it = cached.find(key);
 	if (it != cached.end()) {
 		return it->second;
@@ -398,14 +322,14 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 				Qt::IgnoreAspectRatio,
 				Qt::SmoothTransformation).convertToFormat(QImage::Format_ARGB32);
 			const auto prettify = [](QColor color, bool center) {
-				qreal h = 0, s = 0, v = 0, a = 0;
+				float h = 0, s = 0, v = 0, a = 0;
 				color.getHsvF(&h, &s, &v, &a);
 				if (h >= 0) {
-					s = std::clamp(s, 0.45, 0.85);
+					s = std::clamp(s, 0.45f, 0.85f);
 					v = center
-						? std::clamp(v, 0.55, 0.85)
-						: std::clamp(v * 0.85, 0.30, 0.65);
-					color.setHsvF(h, s, v, 1.0);
+						? std::clamp(v, 0.55f, 0.85f)
+						: std::clamp(v * 0.85f, 0.30f, 0.65f);
+					color.setHsvF(h, s, v, 1.0f);
 				}
 				return color;
 			};
@@ -436,9 +360,9 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 				const auto edge = prettify(
 					QColor(er / en, eg / en, eb / en),
 					false);
-				qreal hs = 0, ss = 0, vs = 0, as = 0;
+				float hs = 0, ss = 0, vs = 0, as = 0;
 				edge.getHsvF(&hs, &ss, &vs, &as);
-				if (ss >= 0.2) {
+				if (ss >= 0.2f) {
 					result = std::make_pair(center, edge);
 				}
 			}
