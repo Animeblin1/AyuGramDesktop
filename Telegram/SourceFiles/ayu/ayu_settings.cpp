@@ -754,6 +754,12 @@ void AyuSettings::setOnlineIndicator(bool val) {
 	save();
 }
 
+void AyuSettings::setInlineCalculator(bool val) {
+	if (_inlineCalculator.current() == val) return;
+	_inlineCalculator = val;
+	save();
+}
+
 void AyuSettings::setRemoveMessageTail(bool val) {
 	if (_removeMessageTail.current() == val) return;
 	_removeMessageTail = val;
@@ -1229,6 +1235,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"selectScrollX2", s._selectScrollX2.current()},
 		{"senderMiniAvatars", s._senderMiniAvatars.current()},
 		{"onlineIndicator", s._onlineIndicator.current()},
+		{"inlineCalculator", s._inlineCalculator.current()},
 		{"removeMessageTail", s._removeMessageTail.current()},
 		{"disableNotificationsDelay", s._disableNotificationsDelay.current()},
 		{"localPremium", s._localPremium.current()},
@@ -1416,6 +1423,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._selectScrollX2 = j.value("selectScrollX2", defaults._selectScrollX2.current());
 	s._senderMiniAvatars = j.value("senderMiniAvatars", defaults._senderMiniAvatars.current());
 	s._onlineIndicator = j.value("onlineIndicator", defaults._onlineIndicator.current());
+	s._inlineCalculator = j.value("inlineCalculator", defaults._inlineCalculator.current());
 	s._caretSpeed = std::clamp(s._caretSpeed.current(), 0, 100);
 	s._blinkMs = std::clamp(s._blinkMs.current(), 200, 1000);
 	s._scrollSpeed = std::clamp(s._scrollSpeed.current(), 0, 100);

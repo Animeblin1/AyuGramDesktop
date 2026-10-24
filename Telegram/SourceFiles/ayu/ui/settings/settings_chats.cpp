@@ -442,6 +442,13 @@ void BuildMessageFieldElements(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.icon = { &st::messageFieldCocoonAiIcon },
 	});
 
+	ayu.addSettingToggle({
+		.id = u"ayu/inlineCalculator"_q,
+		.title = tr::ayu_InlineCalculator(),
+		.getter = &AyuSettings::inlineCalculator,
+		.setter = &AyuSettings::setInlineCalculator,
+	});
+
 	ayu.addSectionDivider();
 }
 
