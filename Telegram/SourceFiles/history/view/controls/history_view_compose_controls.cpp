@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "support/support_helper.h"
 #include "ui/item_text_options.h"
 #include "ui/text/text_options.h"
+#include "ui/toast/toast.h"
 #include "ui/text/text_utilities.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/fields/input_field.h"
@@ -5279,6 +5280,15 @@ void ComposeControls::updateInlineCalculator() {
 	auto value = 0.;
 	const auto ok = !expr.trimmed().isEmpty()
 		&& Ayu::EvaluateMathExpression(expr, value);
+	// Ayu: TEMPORARY diagnostic for the calculator, remove after testing.
+	if (text.startsWith('=')) {
+		static crl::time lastDebug = 0;
+		if (crl::now() - lastDebug > 1500) {
+			lastDebug = crl::now();
+			Ui::Toast::Show(QString("calc dbg: '%1' ok=%2")
+				.arg(expr.trimmed()).arg(ok ? 1 : 0));
+		}
+	}
 	if (!ok) {
 		if (_inlineCalculatorPanel) {
 			_inlineCalculatorPanel->hide();
