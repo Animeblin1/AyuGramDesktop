@@ -168,9 +168,6 @@ void BuildAvatarCorners(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.showTitle = false,
 		.steps = AyuUiSettings::kMaxAvatarCorners + 1,
 		.current = settings->avatarCorners(),
-		.formatLabel = [](int val) {
-			return QString::number(val) + u" px"_q;
-		},
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setAvatarCorners(val);
 			if (previewRaw) {
@@ -180,6 +177,9 @@ void BuildAvatarCorners(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.onFinalChanged = [=](int val) {
 			AyuSettings::getInstance().setAvatarCorners(val);
 			ShowRestartPrompt(controller);
+		},
+		.formatLabel = [](int val) {
+			return QString::number(val) + u" px"_q;
 		},
 	});
 
@@ -269,11 +269,11 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_CaretSpeed(),
 		.steps = 101,
 		.current = settings->caretSpeed(),
-		.formatLabel = [](int val) {
-			return QString::number(val) + u" %"_q;
-		},
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setCaretSpeed(val);
+		},
+		.formatLabel = [](int val) {
+			return QString::number(val) + u" %"_q;
 		},
 	});
 	ayu.addSlider({
@@ -281,11 +281,11 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_BlinkRate(),
 		.steps = 801,
 		.current = settings->blinkMs() - 200,
-		.formatLabel = [](int val) {
-			return QString::number(val + 200) + u" ms"_q;
-		},
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setBlinkMs(val + 200);
+		},
+		.formatLabel = [](int val) {
+			return QString::number(val + 200) + u" ms"_q;
 		},
 	});
 	ayu.addSettingToggle({
@@ -341,11 +341,11 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_ScrollSmoothness(),
 		.steps = 101,
 		.current = settings->scrollSpeed(),
-		.formatLabel = [](int val) {
-			return QString::number(val) + u" %"_q;
-		},
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setScrollSpeed(val);
+		},
+		.formatLabel = [](int val) {
+			return QString::number(val) + u" %"_q;
 		},
 	});
 
