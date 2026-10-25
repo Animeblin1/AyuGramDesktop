@@ -48,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "editor/photo_editor_layer_widget.h"
 #include "editor/video/video_editor_layer.h"
 #include "history/history.h"
+#include "info/info_content_widget.h"
 #include "info/info_memento.h"
 #include "info/profile/info_profile_badge.h"
 #include "info/profile/info_profile_balance_pill.h"
@@ -86,7 +87,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/top_background_gradient.h"
-#include "ayu/ayu_settings.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/glare_tooltip.h"
@@ -507,13 +507,13 @@ TopBar::TopBar(
 	}
 
 	bindStatus();
-	Ui::ProfileGradientScrollEvents(
-	) | rpl::filter([=](const Ui::ProfileGradientScroll &event) {
-		return event.peerBareId == _peer->id.value;
-	}) | rpl::on_next([=](const Ui::ProfileGradientScroll &event) {
-		_ayuGradientFade = Ui::ProfileGradientFadeFor(event.top);
-		update();
-	}, lifetime());
+	if (const auto content = dynamic_cast<ContentWidget*>(parent.get())) {
+		content->scrollTopValue(
+		) | rpl::on_next([=](int top) {
+			_ayuGradientFade = Ui::ProfileGradientFadeFor(top);
+			update();
+		}, lifetime());
+	}
 	if (_hasBalance) {
 		const auto user = _peer->asUser();
 		_balancePill = std::make_unique<BalancePill>(
@@ -638,6 +638,7 @@ TopBar::TopBar(
 		_peer->session().changes().peerFlagsValue(
 			_peer,
 			Data::PeerUpdate::Flag::EmojiStatus
+				| Data::PeerUpdate::Flag::Photo
 				| Data::PeerUpdate::Flag::ColorProfile) | rpl::to_empty
 	) | rpl::on_next([=] {
 		if (_pinnedToTopGiftsFirstTimeShowed) {
@@ -660,7 +661,7 @@ TopBar::TopBar(
 	// a not-yet-cached avatar shows no gradient at all.
 	_peer->session().downloaderTaskFinished(
 	) | rpl::on_next([=] {
-		if (!_hasGradientBg && Ui::AvatarGradientColorsFor(_peer)) {
+		if (Ui::AvatarGradientColorsFor(_peer) != _ayuGradientColors) {
 			updateCollectibleStatus();
 		}
 	}, lifetime());
@@ -821,9 +822,10 @@ void TopBar::adjustColors(const std::optional<QColor> &edgeColor) {
 void TopBar::updateCollectibleStatus() {
 	const auto collectible = effectiveCollectible();
 	const auto colorProfile = effectiveColorProfile();
+	_ayuGradientColors = Ui::AvatarGradientColorsFor(_peer);
 	_hasGradientBg = (collectible != nullptr)
 		|| (colorProfile && colorProfile->bg.size() > 1)
-		|| Ui::AvatarGradientColorsFor(_peer).has_value();
+		|| _ayuGradientColors.has_value();
 	_solidBg = (colorProfile && colorProfile->bg.size() == 1)
 		? std::make_optional(colorProfile->bg.front())
 		: std::nullopt;
@@ -896,8 +898,8 @@ void TopBar::updateCollectibleStatus() {
 		_verifiedSt = nullptr;
 	}
 	update();
-	adjustColors(Ui::AvatarGradientColorsFor(_peer)
-		? std::optional<QColor>(Ui::AvatarGradientColorsFor(_peer)->second)
+	adjustColors(_ayuGradientColors
+		? std::optional<QColor>(_ayuGradientColors->second)
 		: collectible
 		? std::optional<QColor>(collectible->edgeColor)
 		: (colorProfile && !colorProfile->bg.empty())
@@ -2978,7 +2980,7 @@ void TopBar::paintEvent(QPaintEvent *e) {
 			? st::infoProfileTopBarPhotoBgShift
 			: st::infoProfileTopBarPhotoBgNoActionsShift);
 		const auto offset = QPoint(0, -shift);
-		const auto ayuAvatar = Ui::AvatarGradientColorsFor(_peer);
+		const auto ayuAvatar = _ayuGradientColors;
 		if (ayuAvatar) {
 			_cachedGradient = Ui::CreateTopBgGradient(
 				QSize(width(), maximumHeight()),
@@ -2986,7 +2988,8 @@ void TopBar::paintEvent(QPaintEvent *e) {
 				ayuAvatar->second,
 				false,
 				offset);
-		} else if (collectible) {			_cachedGradient = Ui::CreateTopBgGradient(
+		} else if (collectible) {
+			_cachedGradient = Ui::CreateTopBgGradient(
 				QSize(width(), maximumHeight()),
 				collectible->centerColor,
 				collectible->edgeColor,
@@ -3010,67 +3013,24 @@ void TopBar::paintEvent(QPaintEvent *e) {
 		const auto y = (height()
 			- _cachedGradient.height() / style::DevicePixelRatio())
 				/ 2;
-		// Ayu: the gradient dissolves into the stock background as the
-		// profile is scrolled down, and near the top its bottom edge
-		// softly melts into the content below.
-		const auto g = _ayuGradientFade;
-		if (g <= 0.) {
-			paintEdges(p, clipBounds);
-		} else {
-			const auto band = (g >= 0.99)
-				? std::min(height(), int(style::ConvertScale(46)))
-				: 0;
-			const auto rows = std::max((band + 1) / 2, 1);
-			const auto mainRect = QRect(
-				0,
-				0,
-				width(),
-				std::max(0, height() - band));
-			const auto paintBand = [&] {
-				for (auto i = 0; i != rows; ++i) {
-					const auto rowTop = height() - band + i * 2;
-					const auto rowH = std::min(2, height() - rowTop);
-					if (rowH <= 0) {
-						break;
-					}
-					const auto row = QRect(0, rowTop, width(), rowH);
-					const auto k = float(i + 1) / rows;
-					p.save();
-					p.setClipRect(row, Qt::IntersectClip);
-					p.setOpacity(g * (1. - k));
-					p.drawImage(x, y, _cachedGradient);
-					p.restore();
-				}
-			};
-			if (clipTouchesRoundedCorners(clipBounds)) {
-				if (_cachedClipPath.isEmpty()) {
-					const auto radius = st::boxRadius;
-					_cachedClipPath.addRoundedRect(
-						rect() + QMargins{ 0, 0, 0, radius + 1 },
-						radius,
-						radius);
-				}
-				auto hq = PainterHighQualityEnabler(p);
-				p.setPen(Qt::NoPen);
-				p.setClipPath(_cachedClipPath);
-				p.setOpacity(g);
-				p.drawImage(x, y, _cachedGradient);
-				p.setOpacity(1.);
-				if (band) {
-					paintBand();
-					p.setClipPath(_cachedClipPath);
-				}
-			} else {
-				p.setClipRect(mainRect);
-				p.setOpacity(g);
-				p.drawImage(x, y, _cachedGradient);
-				p.setOpacity(1.);
-				if (band) {
-					paintBand();
-				}
-				p.setClipping(false);
+		paintEdges(p, clipBounds);
+		p.save();
+		if (clipTouchesRoundedCorners(clipBounds)) {
+			if (_cachedClipPath.isEmpty()) {
+				const auto radius = st::boxRadius;
+				_cachedClipPath.addRoundedRect(
+					rect() + QMargins{ 0, 0, 0, radius + 1 },
+					radius,
+					radius);
 			}
+			p.setRenderHint(QPainter::Antialiasing);
+			p.setClipPath(_cachedClipPath, Qt::IntersectClip);
 		}
+		p.setOpacity(_ayuGradientColors
+			? _ayuGradientFade
+			: 1.);
+		p.drawImage(x, y, _cachedGradient);
+		p.restore();
 	}
 	if (_patternEmoji && _patternEmoji->ready()) {
 		paintAnimatedPattern(p, clipBounds, geometry);

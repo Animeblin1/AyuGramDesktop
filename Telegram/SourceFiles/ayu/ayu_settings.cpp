@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <fstream>
 #include <QApplication>
+#include <QSaveFile>
 
 using json = nlohmann::json;
 
@@ -421,10 +422,13 @@ void AyuSettings::save() {
 	auto &settings = getInstance();
 	json p = settings;
 
-	std::ofstream file;
-	file.open(getSettingsPath());
-	file << p.dump(4);
-	file.close();
+	const auto data = QByteArray::fromStdString(p.dump(4));
+	auto file = QSaveFile(QString::fromStdString(getSettingsPath()));
+	if (!file.open(QIODevice::WriteOnly)
+		|| file.write(data) != data.size()
+		|| !file.commit()) {
+		LOG(("AyuGramSettings: failed to save settings: %1").arg(file.errorString()));
+	}
 }
 
 void AyuSettings::reset() {

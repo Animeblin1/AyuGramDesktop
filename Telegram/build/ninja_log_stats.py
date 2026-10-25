@@ -67,7 +67,7 @@ def text_report(stats, title):
         "Slowest targets:",
     ]
     for total, count, name in stats["targets"]:
-        lines.append(f"  {human(total):>12}  {count:>5} ×  {name}")
+        lines.append(f"  {human(total):>12}  {count:>5} x  {name}")
     lines += ["", "Slowest edges:"]
     for duration, output in stats["slowest"]:
         lines.append(f"  {human(duration):>12}  {output}")

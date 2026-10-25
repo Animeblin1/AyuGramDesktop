@@ -1846,11 +1846,13 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
 			} else {
 				Unexpected("Corrupt forwarded information in message.");
 			}
-			if (const auto user = item->displayFrom()->asUser()) {
+			const auto from = item->displayFrom();
+			if (const auto user = from ? from->asUser() : nullptr) {
 				if (AyuSettings::getInstance().onlineIndicator()
 					&& Data::IsUserOnline(user, base::unixtime::now())) {
 					const auto dot = st::msgPhotoSize / 3.5;
 					const auto stroke = st::lineWidth * 2;
+					p.save();
 					p.setPen(QPen(st::windowBg, stroke));
 					p.setBrush(st::dialogsOnlineBadgeFg);
 					p.drawEllipse(QRectF(
@@ -1858,8 +1860,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
 						userpicTop + st::msgPhotoSize - dot,
 						dot,
 						dot));
-					p.setPen(Qt::NoPen);
-					p.setBrush(Qt::NoBrush);
+					p.restore();
 				}
 			}
 			if (shift) {

@@ -8,7 +8,15 @@
 
 #include "ui/rp_widget.h"
 
+namespace Ui {
+class InputField;
+} // namespace Ui
+
 namespace Ayu {
+
+void SetupInlineCalculator(
+	not_null<Ui::RpWidget*> parent,
+	not_null<Ui::InputField*> field);
 
 [[nodiscard]] QString FormatMathResult(double value);
 

@@ -1197,7 +1197,9 @@ void Updates::handleSendActionUpdate(
 		ActivityActionText(action),
 		topicName,
 		typing,
-		when);
+		when,
+		rootId,
+		action.type() == mtpc_sendMessageCancelAction);
 	session().data().sendActionManager().registerFor(
 		history,
 		rootId,

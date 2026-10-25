@@ -152,12 +152,7 @@ void StatusLabel::refresh() {
 			const auto updateIn = Data::OnlineChangeTimeout(
 				user,
 				currentTime);
-			if (showOnline
-				|| Ayu::ActivityFeed::CurrentActivity(user)) {
-				// Re-evaluate the activity text soon - it expires and
-				// changes as the user keeps typing in shared chats.
-				_refreshTimer.callOnce(2000);
-			}
+			_refreshTimer.callOnce(updateIn);
 			return MaybeHiddenPrefixed(
 				(showOnline && _colorized)
 					? Ui::Text::Colorized(result)

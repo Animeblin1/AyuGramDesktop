@@ -781,9 +781,10 @@ ListWidget::ListWidget(
 			|| base::OppositeSigns(_selectBoostSpeed, double(d))) {
 			_selectBoostSpeed = d;
 		}
-		const auto target = std::min(
-			std::max((double(d) + 6.) * boost, 12.),
-			90.);
+		const auto target = std::copysign(std::clamp(
+			(std::abs(double(d)) + 6.) * boost,
+			12.,
+			90.), double(d));
 		_selectBoostSpeed += (target - _selectBoostSpeed) * 0.15;
 		delegate->listScrollTo(
 			_visibleTop + int(std::lround(_selectBoostSpeed)),

@@ -1,0 +1,18 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '../../..');
+const read = p => fs.readFileSync(path.join(root, p), 'utf8');
+const manager = read('Telegram/lib_ui/ui/dragging_scroll_manager.cpp');
+assert.match(manager, /if \(!_timer->isActive\(\)\)\s*\{\s*_timer->callEach\(15\)/);
+const selection = read('Telegram/SourceFiles/history/view/history_view_list_widget.cpp');
+assert.match(selection, /std::copysign\(std::clamp\([\s\S]*?std::abs\(double\(d\)\)/);
+const plugin = read('Telegram/SourceFiles/ayu/ui/boxes/plugin_info_box.cpp');
+assert.match(plugin, /const auto showBox = crl::guard\(controller/);
+assert.match(plugin, /done\(crl::guard\(controller/);
+assert.match(plugin, /fail\(crl::guard\(controller/);
+assert.match(plugin, /controller->lifetime\(\)/);
+const resolver = read('Telegram/SourceFiles/ayu/features/filters/filters_utils.cpp');
+assert.match(resolver, /const auto session = weakSession.get\(\);\s*if \(!session\)/);
+assert.match(resolver, /if \(sessionGone->load\(\)\)\s*\{\s*break;/);
+console.log('PASS: source regression contracts for selection timer/sign and callback lifetimes; not a runtime UAF test.');

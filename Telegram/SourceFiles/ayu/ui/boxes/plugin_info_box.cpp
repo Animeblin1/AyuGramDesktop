@@ -484,7 +484,7 @@ void ShowPluginInfoBox(
 	not_null<Window::SessionController*> controller,
 	const QString &pluginPath,
 	PluginMetadata metadata) {
-	const auto showBox = [controller, pluginPath](
+	const auto showBox = crl::guard(controller, [controller, pluginPath](
 		PluginMetadata md,
 		DocumentData *stickerDoc)
 	{
@@ -494,7 +494,7 @@ void ShowPluginInfoBox(
 			pluginPath,
 			std::move(md),
 			stickerDoc));
-	};
+	});
 
 	if (metadata.icon.isEmpty()) {
 		showBox(std::move(metadata), nullptr);
@@ -518,7 +518,7 @@ void ShowPluginInfoBox(
 			.shortName = shortName,
 		}),
 		MTP_int(0)
-	)).done([=](const MTPmessages_StickerSet &result)
+	)).done(crl::guard(controller, [=](const MTPmessages_StickerSet &result)
 	{
 		auto doc = (DocumentData*) nullptr;
 		result.match([&](const MTPDmessages_stickerSet &data)
@@ -551,12 +551,12 @@ void ShowPluginInfoBox(
 			return media->loaded();
 		}) | rpl::take(1) | rpl::on_next([=] {
 			showBox(std::move(*shared), doc);
-		}, session->lifetime());
+		}, controller->lifetime());
 		media->automaticLoad(doc->stickerSetOrigin(), nullptr);
-	}).fail([=](const MTP::Error &)
+	})).fail(crl::guard(controller, [=](const MTP::Error &)
 	{
 		showBox(std::move(*shared), nullptr);
-	}).send();
+	})).send();
 }
 
 }

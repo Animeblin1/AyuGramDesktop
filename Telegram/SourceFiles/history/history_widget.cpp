@@ -223,6 +223,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ayu_settings.h"
+#include "ayu/ui/components/inline_calculator.h"
 #include "ayu/features/filters/filters_cache_controller.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "ayu/features/message_shot/message_shot.h"
@@ -525,6 +526,7 @@ HistoryWidget::HistoryWidget(
 				.canUse = [=] { return canUseComposeStash(); },
 			});
 	}
+	Ayu::SetupInlineCalculator(this, _field.data());
 	_field->changes(
 	) | rpl::on_next([=] {
 		fieldChanged();

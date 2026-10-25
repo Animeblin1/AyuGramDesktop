@@ -45,10 +45,6 @@ enum class PauseReason;
 class FieldAutocomplete;
 } // namespace ChatHelpers
 
-namespace Ayu {
-class InlineCalculatorPanel;
-} // namespace Ayu
-
 namespace Data {
 struct MessagePosition;
 struct Draft;
@@ -389,8 +385,6 @@ private:
 	void updateMessagesTTLShown();
 	bool updateSendAsButton(std::shared_ptr<Data::GroupCall> videoStream);
 	void updateAttachBotsMenu();
-	void updateInlineCalculator();
-	void updateInlineCalculatorGeometry();
 	void updateHeight();
 	void updateWrappingVisibility();
 	void refreshSendGiftToggle();
@@ -593,7 +587,6 @@ private:
 	std::shared_ptr<QMimeData> _pendingRichPaste;
 	const not_null<Ui::InputField*> _field;
 	std::unique_ptr<Controls::RichDraftPreview> _richDraftPreview;
-	std::unique_ptr<Ayu::InlineCalculatorPanel> _inlineCalculatorPanel;
 	base::unique_qptr<Ui::RpWidget> _fieldDisabled;
 	Ui::IconButton * const _botCommandStart = nullptr;
 	std::unique_ptr<BotMenuButton> _botMenu;

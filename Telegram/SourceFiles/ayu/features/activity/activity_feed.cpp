@@ -8,27 +8,57 @@
 
 #include "ayu/ayu_settings.h"
 #include "base/flat_map.h"
+#include "base/timer.h"
 #include "data/data_peer.h"
 #include "data/data_user.h"
-#include "lang/lang_keys.h"
+#include "main/main_session.h"
 
 namespace Ayu::ActivityFeed {
 namespace {
 
 struct Entry {
-	QString text;
-	bool typing = false;
+	Activity activity;
+	PeerId where;
+	MsgId topic = 0;
 	crl::time until = 0;
 };
-
-base::flat_map<PeerId, Entry> &Entries() {
-	static base::flat_map<PeerId, Entry> entries;
-	return entries;
-}
 
 rpl::event_stream<> &ChangedStream() {
 	static rpl::event_stream<> stream;
 	return stream;
+}
+
+struct Feed {
+	base::flat_map<PeerId, Entry> entries;
+	base::Timer timer{ [=] {
+		const auto now = crl::now();
+		auto changed = false;
+		for (auto i = entries.begin(); i != entries.end();) {
+			if (i->second.until <= now) {
+				i = entries.erase(i);
+				changed = true;
+			} else {
+				++i;
+			}
+		}
+		if (entries.empty()) {
+			timer.cancel();
+		}
+		if (changed) {
+			ChangedStream().fire({});
+		}
+	} };
+};
+
+Feed &SessionFeed(not_null<UserData*> user) {
+	static base::flat_map<Main::Session*, Feed*> feeds;
+	const auto session = &user->session();
+	auto &feed = feeds[session];
+	if (!feed) {
+		feed = session->lifetime().make_state<Feed>();
+		session->lifetime().add([=] { feeds.erase(session); });
+	}
+	return *feed;
 }
 
 } // namespace
@@ -39,42 +69,51 @@ void HandleSendAction(
 		const QString &actionText,
 		const QString &topicName,
 		bool typing,
-		TimeId when) {
-	const auto &settings = AyuSettings::getInstance();
-	if (!settings.liveUserActivity() || actionText.isEmpty()) {
+		TimeId when,
+		MsgId topic,
+		bool cancel) {
+	if (!AyuSettings::getInstance().liveUserActivity() || !when) {
 		return;
 	}
-	auto &entry = Entries()[from->id];
-	if (where->isUser()) {
-		// A private chat with the viewer - the action speaks for itself.
-		entry.text = actionText;
-	} else {
-		entry.text = QString("%1 в «%2»").arg(actionText, where->name());
-		if (!topicName.isEmpty()) {
-			entry.text += QString(" в «%1»").arg(topicName);
+	auto &feed = SessionFeed(from);
+	if (cancel) {
+		const auto i = feed.entries.find(from->id);
+		if (i != feed.entries.end()
+			&& i->second.where == where->id
+			&& i->second.topic == topic) {
+			feed.entries.erase(i);
+			ChangedStream().fire({});
 		}
+		return;
+	} else if (actionText.isEmpty()) {
+		return;
 	}
-	entry.typing = typing;
+	auto &entry = feed.entries[from->id];
+	entry.activity.text = where->isUser()
+		? actionText
+		: u"%1 в «%2»"_q.arg(actionText, where->name());
+	if (!where->isUser() && !topicName.isEmpty()) {
+		entry.activity.text += u" в «%1»"_q.arg(topicName);
+	}
+	entry.activity.typing = typing;
+	entry.where = where->id;
+	entry.topic = topic;
 	entry.until = crl::now() + 7000;
+	if (!feed.timer.isActive()) {
+		feed.timer.callEach(1000);
+	}
 	ChangedStream().fire({});
 }
 
 std::optional<Activity> CurrentActivity(not_null<UserData*> user) {
-	const auto &settings = AyuSettings::getInstance();
-	if (!settings.liveUserActivity()) {
+	if (!AyuSettings::getInstance().liveUserActivity()) {
 		return std::nullopt;
 	}
-	auto &entries = Entries();
+	const auto &entries = SessionFeed(user).entries;
 	const auto i = entries.find(user->id);
-	if (i == entries.end()) {
-		return std::nullopt;
-	}
-	if (crl::now() >= i->second.until) {
-		entries.erase(i);
-		ChangedStream().fire({});
-		return std::nullopt;
-	}
-	return Activity{ i->second.text, i->second.typing };
+	return (i != entries.end() && crl::now() < i->second.until)
+		? std::make_optional(i->second.activity)
+		: std::nullopt;
 }
 
 rpl::producer<> ActivityChanged() {

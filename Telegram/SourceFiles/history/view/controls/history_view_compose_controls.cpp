@@ -3265,6 +3265,7 @@ void ComposeControls::initKeyHandler() {
 }
 
 void ComposeControls::initField() {
+	Ayu::SetupInlineCalculator(_parent, _field);
 	_field->setMaxHeight(st::historyComposeFieldMaxHeight);
 	updateSubmitSettings();
 	_field->submits(
@@ -3298,7 +3299,6 @@ void ComposeControls::initField() {
 		updateAiButtonVisibility();
 		updateSendAsFileVisibility();
 		updateExpandButtonVisibility();
-		updateInlineCalculator();
 	}, _field->lifetime());
 	Data::AmPremiumValue(&session()) | rpl::on_next([=] {
 		checkCharsLimitation();
@@ -5256,76 +5256,11 @@ void ComposeControls::updateControlsGeometry(QSize size) {
 	updateSendAsFileGeometry();
 	updateExpandButtonGeometry();
 	updateDiscardRichDraftGeometry();
-	updateInlineCalculatorGeometry();
 
 	_voiceRecordBar->resizeToWidth(size.width());
 	_voiceRecordBar->moveToLeft(
 		0,
 		size.height() - _voiceRecordBar->height());
-}
-
-void ComposeControls::updateInlineCalculator() {
-	const auto &settings = AyuSettings::getInstance();
-	if (!settings.inlineCalculator()) {
-		if (_inlineCalculatorPanel) {
-			_inlineCalculatorPanel->hide();
-		}
-		return;
-	}
-	const auto text = _field->getLastText();
-	auto expr = QString();
-	if (text.startsWith('=') && !text.contains('\n')) {
-		expr = text.mid(1);
-	}
-	auto value = 0.;
-	const auto ok = !expr.trimmed().isEmpty()
-		&& Ayu::EvaluateMathExpression(expr, value);
-	// Ayu: TEMPORARY diagnostic for the calculator, remove after testing.
-	if (text.startsWith('=')) {
-		static crl::time lastDebug = 0;
-		if (crl::now() - lastDebug > 1500) {
-			lastDebug = crl::now();
-			Ui::Toast::Show(QString("calc dbg: '%1' ok=%2")
-				.arg(expr.trimmed()).arg(ok ? 1 : 0));
-		}
-	}
-	if (!ok) {
-		if (_inlineCalculatorPanel) {
-			_inlineCalculatorPanel->hide();
-		}
-		return;
-	}
-	if (!_inlineCalculatorPanel) {
-		_inlineCalculatorPanel = std::make_unique<Ayu::InlineCalculatorPanel>(
-			_wrap.get());
-		_inlineCalculatorPanel->applyRequests(
-		) | rpl::on_next([=](const QString &result) {
-			_field->setText(result);
-			_field->setFocusFast();
-		}, _inlineCalculatorPanel->lifetime());
-	}
-	_inlineCalculatorPanel->updateResult(
-		expr.trimmed(),
-		Ayu::FormatMathResult(value));
-	updateInlineCalculatorGeometry();
-	_inlineCalculatorPanel->show();
-	_inlineCalculatorPanel->raise();
-}
-
-void ComposeControls::updateInlineCalculatorGeometry() {
-	if (!_inlineCalculatorPanel) {
-		return;
-	}
-	const auto size = _wrap->size();
-	const auto x = std::max(0,
-		size.width()
-			- _inlineCalculatorPanel->width()
-			- _st.padding.right());
-	const auto y = std::max(0,
-		_field->y()
-			- _inlineCalculatorPanel->height()
-			- st::lineWidth * 4);
-	_inlineCalculatorPanel->move(x, y);
 }
 
 void ComposeControls::updateControlsVisibility() {

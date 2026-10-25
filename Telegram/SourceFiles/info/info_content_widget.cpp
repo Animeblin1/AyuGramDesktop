@@ -8,7 +8,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_content_widget.h"
 
 #include "api/api_who_reacted.h"
-#include "ayu/ayu_settings.h"
 #include "boxes/peer_list_box.h"
 #include "data/data_chat.h"
 #include "data/data_channel.h"
@@ -30,7 +29,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "menu/menu_send.h"
 #include "ui/controls/swipe_handler.h"
-#include "ui/top_background_gradient.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/wrap/padding_wrap.h"
@@ -105,28 +103,6 @@ ContentWidget::ContentWidget(
 		) | rpl::on_next([this](bool shown) {
 			refreshSearchField(shown);
 		}, lifetime());
-	} else {
-		// Ayu: repaint the card gradient tint when the avatar photo
-		// loads and whenever the content is scrolled (the tint is
-		// anchored to the content, and the scroll also drives the top
-		// bar's gradient fade).
-		scrollTopValue(
-		) | rpl::on_next([this](int top) {
-			_ayuScrollTop = top;
-			Ui::PublishProfileGradientScroll({
-				.peerBareId = _controller->peer()->id.value,
-				.top = top,
-			});
-			update();
-		}, lifetime());
-		_controller->peer()->session().downloaderTaskFinished(
-		) | rpl::on_next([this] {
-			const auto photoId = _controller->peer()->userpicPhotoId();
-			if (_ayuGradientPhotoId != photoId) {
-				_ayuGradientPhotoId = photoId;
-				update();
-			}
-		}, lifetime());
 	}
 	rpl::merge(
 		_scrollTopSkip.changes(),
@@ -194,36 +170,6 @@ void ContentWidget::paintEvent(QPaintEvent *e) {
 			0,
 			std::min(0, (rectSide.bottom() - _paintPadding.bottom())));
 		p.fillRect(rectSide + padding, _bg);
-	}
-	// Ayu: a gentle echo of the avatar gradient below the top bar.
-	// The gradient itself lives in the top bar and the tint dissolves
-	// into the stock background as the profile is scrolled down.
-	if (_controller->section().type() == Section::Type::Profile) {
-		const auto g = Ui::ProfileGradientFadeFor(_ayuScrollTop);
-		if (g > 0.) {
-			if (const auto colors = Ui::AvatarGradientColorsFor(
-					_controller->peer())) {
-				const auto fade = std::clamp(
-					int(height() * 0.45),
-					280,
-					700);
-				const auto top = -_ayuScrollTop;
-				if (r.bottom() >= top && r.top() < top + fade) {
-					auto gtop = colors->second;
-					gtop.setAlphaF(0.8 * g);
-					auto center = colors->first;
-					center.setAlphaF(0.45 * g);
-					auto low = colors->first;
-					low.setAlphaF(0.);
-					auto grad = QLinearGradient(0, top, 0, top + fade);
-					grad.setColorAt(0.0, gtop);
-					grad.setColorAt(0.45, center);
-					grad.setColorAt(1.0, low);
-					auto area = QRect(0, top, width(), fade).intersected(r);
-					p.fillRect(area, QBrush(grad));
-				}
-			}
-		}
 	}
 }
 

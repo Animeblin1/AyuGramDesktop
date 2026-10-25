@@ -163,7 +163,6 @@ TopBarWidget::TopBarWidget(
 	Ayu::ActivityFeed::ActivityChanged(
 	) | rpl::on_next([=] {
 		updateOnlineDisplay();
-		updateOnlineDisplayIn(2000);
 	}, lifetime());
 
 	_forward->setClickedCallback([=] { _forwardSelection.fire({}); });
@@ -860,7 +859,12 @@ void TopBarWidget::paintStatus(
 			? st::historyStatusFgActive
 			: st::historyStatusFg);
 		// Ayu: typing dots go LEFT of the live activity text.
-		const auto typing = (_ayuTypingAnim ? 1 : 0);
+		const auto peer = _activeChat.key.peer();
+		const auto user = peer ? peer->asUser() : nullptr;
+		const auto activity = user
+			? Ayu::ActivityFeed::CurrentActivity(user)
+			: std::nullopt;
+		const auto typing = activity && activity->typing && _ayuTypingAnim;
 		const auto animWidth = typing ? _ayuTypingAnim.width() : 0;
 		const auto skip = typing ? st::lineWidth * 3 : 0;
 		_titlePeerText.drawLeftElided(
@@ -874,7 +878,7 @@ void TopBarWidget::paintStatus(
 				p,
 				st::historyStatusFgActive,
 				left,
-				top,
+				top + st::normalFont->ascent,
 				outerWidth,
 				crl::now());
 		}
@@ -2046,6 +2050,14 @@ bool TopBarWidget::trackOnlineOf(not_null<PeerData*> user) const {
 
 void TopBarWidget::updateOnlineDisplay() {
 	const auto peer = _activeChat.key.peer();
+	const auto user = peer ? peer->asUser() : nullptr;
+	const auto activity = user
+		? Ayu::ActivityFeed::CurrentActivity(user)
+		: std::nullopt;
+	if (!activity || !activity->typing || _activeChat.key.topic()) {
+		_ayuTypingAnim.tryToFinish();
+		_ayuAnimTimer.cancel();
+	}
 	if (!peer || _activeChat.key.topic()) {
 		return;
 	}
@@ -2063,14 +2075,15 @@ void TopBarWidget::updateOnlineDisplay() {
 			titlePeerTextOnline = Data::OnlineTextActive(user, now);
 			// Ayu: attach the typing dots while the live activity is
 			// a text-typing one.
-			if (const auto activity
-				= Ayu::ActivityFeed::CurrentActivity(user)) {
+			if (activity) {
 				if (activity->typing) {
 					if (!_ayuTypingAnim) {
 						_ayuTypingAnim.start(
 							Api::SendProgressType::Typing);
 					}
-					_ayuAnimTimer.callEach(60);
+					if (!_ayuAnimTimer.isActive()) {
+						_ayuAnimTimer.callEach(60);
+					}
 				} else {
 					_ayuTypingAnim.tryToFinish();
 					_ayuAnimTimer.cancel();

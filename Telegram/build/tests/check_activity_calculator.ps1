@@ -1,0 +1,25 @@
+$ErrorActionPreference = 'Stop'
+$root = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
+function Source($path) { [IO.File]::ReadAllText((Join-Path $root "Telegram/SourceFiles/$path")) }
+function Check($condition, $message) { if (!$condition) { throw $message } }
+$calculator = Source 'ayu/ui/components/inline_calculator.cpp'
+$classic = Source 'history/history_widget.cpp'
+$compose = Source 'history/view/controls/history_view_compose_controls.cpp'
+$feed = Source 'ayu/features/activity/activity_feed.cpp'
+$updates = Source 'api/api_updates.cpp'
+$profile = Source 'info/profile/info_profile_status_label.cpp'
+Check ($classic.Contains('Ayu::SetupInlineCalculator(this, _field.data());')) 'Classic chats must attach calculator.'
+Check ($compose.Contains('Ayu::SetupInlineCalculator(_parent, _field);')) 'Replies/topics must attach calculator outside clipped wrapper.'
+Check (!$compose.Contains('_inlineCalculatorPanel')) 'Do not retain divergent calculator implementation.'
+Check ($calculator.Contains('field->geometryValue()') -and $calculator.Contains('container->geometryValue()')) 'Calculator must follow field and wrapper geometry.'
+Check ($calculator.Contains('inlineCalculatorValue()') -and $calculator.Contains('field->shownValue()')) 'Calculator must follow setting and visibility changes.'
+Check ($calculator.Contains('_depth >= 128')) 'Parser recursion must remain bounded.'
+$getter = [regex]::Match($feed, '(?s)std::optional<Activity> CurrentActivity.*?(?=rpl::producer)').Value
+Check (!$getter.Contains('.fire(') -and !$getter.Contains('.erase(')) 'Activity getter must not synchronously mutate/fire during UI refresh.'
+Check ($feed.Contains('session->lifetime().make_state<Feed>()')) 'Activity state must belong to a session.'
+Check ($feed.Contains('timer.callEach(1000)') -and $feed.Contains('i->second.until <= now')) 'Activity must expire without UI polling.'
+Check ($feed.Contains('i->second.where == where->id') -and $feed.Contains('i->second.topic == topic')) 'Cancel must not clear another chat/topic activity.'
+Check ($feed.Contains('|| !when')) 'Ignore replayed difference actions.'
+Check ($updates.Contains('action.type() == mtpc_sendMessageCancelAction')) 'Updates must forward cancel actions.'
+Check ($profile.Contains('_refreshTimer.callOnce(updateIn)')) 'Offline profile status must keep updating.'
+Write-Output 'PASS: activity/calculator production-source integration contracts (not a C++ build or runtime test).'
