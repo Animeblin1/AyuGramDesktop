@@ -49,9 +49,9 @@ void HandleSendAction(
 		// A private chat with the viewer - the action speaks for itself.
 		entry.text = actionText;
 	} else {
-		entry.text = QString("%1 — «%2»").arg(actionText, where->name());
+		entry.text = QString("%1 в «%2»").arg(actionText, where->name());
 		if (!topicName.isEmpty()) {
-			entry.text += QString(" (%1)").arg(topicName);
+			entry.text += QString(" в «%1»").arg(topicName);
 		}
 	}
 	entry.typing = typing;
