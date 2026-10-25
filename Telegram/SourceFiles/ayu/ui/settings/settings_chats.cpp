@@ -290,7 +290,7 @@ void BuildWideMessagesMultiplier(
 			ShowRestartPrompt(controller);
 		},
 		.formatLabel = [](int index) {
-			return QString::number(index);
+			return QString::number(index) + u" px"_q;
 		},
 	});
 
@@ -309,7 +309,7 @@ void BuildWideMessagesMultiplier(
 			ShowRestartPrompt(controller);
 		},
 		.formatLabel = [=](int index) {
-			return QString::number(kMinSize + index * kStep, 'f', 2);
+			return QString::number(kMinSize + index * kStep, 'f', 2) + u"x"_q;
 		},
 	});
 

@@ -218,7 +218,9 @@ void AyuSectionBuilder::addSlider(SliderArgs &&args) {
 				st::autoDownloadLimitSlider,
 				st::settingsScaleLabel,
 				0,
-				args.showTitle ? st::settingsScaleLabel.style.font->width("8%%%") : 0,
+				(formatLabel || args.showTitle)
+					? st::settingsScaleLabel.style.font->width("8888 %")
+					: 0,
 				true);
 			container->add(
 				std::move(sliderWithLabel.widget),
