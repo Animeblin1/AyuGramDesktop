@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rp_widget.h"
 #include "ui/unread_badge.h"
 #include "ui/effects/animations.h"
+#include "ui/effects/send_action_animations.h"
 #include "base/timer.h"
 #include "base/object_ptr.h"
 #include "base/weak_qptr.h"
@@ -283,6 +284,10 @@ private:
 	std::optional<Data::ReportInput> _chooseForReportReason;
 
 	base::Timer _onlineUpdater;
+
+	// Ayu: typing dots next to the live activity status.
+	Ui::SendActionAnimation _ayuTypingAnim;
+	base::Timer _ayuAnimTimer;
 
 	rpl::event_stream<> _forwardSelection;
 	rpl::event_stream<> _sendNowSelection;

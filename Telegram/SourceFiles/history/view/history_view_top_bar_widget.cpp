@@ -143,7 +143,8 @@ TopBarWidget::TopBarWidget(
 , _recentActions(this, st::topBarRecentActions)
 , _admins(this, st::topBarAdmins)
 , _titlePeerText(st::windowMinWidth / 3)
-, _onlineUpdater([=] { updateOnlineDisplay(); }) {
+, _onlineUpdater([=] { updateOnlineDisplay(); })
+, _ayuAnimTimer([=] { update(); }) {
 	setAttribute(Qt::WA_OpaquePaintEvent);
 
 	_clear->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
@@ -864,6 +865,19 @@ void TopBarWidget::paintStatus(
 			top,
 			availableWidth,
 			outerWidth);
+		if (_ayuTypingAnim) {
+			// Ayu: typing dots right after the live activity text.
+			const auto used = std::min(
+				_titlePeerText.maxWidth(),
+				availableWidth);
+			_ayuTypingAnim.paint(
+				p,
+				st::historyStatusFgActive,
+				left + used + st::lineWidth * 3,
+				top,
+				outerWidth,
+				crl::now());
+		}
 	}
 }
 
@@ -2047,6 +2061,24 @@ void TopBarWidget::updateOnlineDisplay() {
 		} else {
 			text = Data::OnlineText(user, now);
 			titlePeerTextOnline = Data::OnlineTextActive(user, now);
+			// Ayu: attach the typing dots while the live activity is
+			// a text-typing one.
+			if (const auto activity
+				= Ayu::ActivityFeed::CurrentActivity(user)) {
+				if (activity->typing) {
+					if (!_ayuTypingAnim) {
+						_ayuTypingAnim.start(
+							Api::SendProgressType::Typing);
+					}
+					_ayuAnimTimer.callEach(60);
+				} else {
+					_ayuTypingAnim.tryToFinish();
+					_ayuAnimTimer.cancel();
+				}
+			} else {
+				_ayuTypingAnim.tryToFinish();
+				_ayuAnimTimer.cancel();
+			}
 		}
 	} else if (const auto chat = peer->asChat()) {
 		if (!chat->amIn()) {
