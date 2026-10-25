@@ -859,21 +859,21 @@ void TopBarWidget::paintStatus(
 		p.setPen(_titlePeerTextOnline
 			? st::historyStatusFgActive
 			: st::historyStatusFg);
+		// Ayu: typing dots go LEFT of the live activity text.
+		const auto typing = (_ayuTypingAnim ? 1 : 0);
+		const auto animWidth = typing ? _ayuTypingAnim.width() : 0;
+		const auto skip = typing ? st::lineWidth * 3 : 0;
 		_titlePeerText.drawLeftElided(
 			p,
-			left,
+			left + animWidth + skip,
 			top,
-			availableWidth,
+			std::max(0, availableWidth - animWidth - skip),
 			outerWidth);
-		if (_ayuTypingAnim) {
-			// Ayu: typing dots right after the live activity text.
-			const auto used = std::min(
-				_titlePeerText.maxWidth(),
-				availableWidth);
+		if (typing) {
 			_ayuTypingAnim.paint(
 				p,
 				st::historyStatusFgActive,
-				left + used + st::lineWidth * 3,
+				left,
 				top,
 				outerWidth,
 				crl::now());
