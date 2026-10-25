@@ -61,7 +61,13 @@ std::optional<bool> isFiltered(
 			return false;
 		}
 
-		const auto match = matcher->find();
+		matcher->setTimeLimit(100, status);
+		matcher->setStackLimit(1024 * 1024, status);
+		const auto match = matcher->find(status);
+		if (U_FAILURE(status)) {
+			LOG(("FILTER FAILED: %1").arg(u_errorName(status)));
+			return false;
+		}
 		const auto reversed = pattern.reversed;
 
 		if ((!reversed && match) || (reversed && !match)) {

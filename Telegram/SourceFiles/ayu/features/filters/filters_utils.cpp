@@ -228,7 +228,8 @@ PeerData *LoadedPeerFromDialogId(not_null<Data::Session*> data, ID dialogId) {
 }
 
 void ResolveFilterBackupPeers(const std::vector<QString> &peerHints) {
-	auto session = currentSession();
+	const auto session = currentSession();
+	const auto weakSession = base::weak_ptr<Main::Session>(session.get());
 	auto hintsCopy = peerHints;
 
 	crl::async([=]
@@ -240,6 +241,7 @@ void ResolveFilterBackupPeers(const std::vector<QString> &peerHints) {
 			}
 			auto latch = std::make_shared<TimedCountDownLatch>(1);
 			auto floodWait = std::make_shared<std::atomic_bool>(false);
+			auto sessionGone = std::make_shared<std::atomic_bool>(false);
 
 			auto onFail = [=](const MTP::Error &error)
 			{
@@ -251,6 +253,12 @@ void ResolveFilterBackupPeers(const std::vector<QString> &peerHints) {
 
 			crl::on_main([=]
 			{
+				const auto session = weakSession.get();
+				if (!session) {
+					sessionGone->store(true);
+					latch->countDown();
+					return;
+				}
 				if (hint->type == PeerResolveHintType::Username) {
 					session->api().request(MTPcontacts_ResolveUsername(
 						MTP_flags(0),
@@ -283,6 +291,9 @@ void ResolveFilterBackupPeers(const std::vector<QString> &peerHints) {
 				}
 			});
 			latch->await(std::chrono::seconds(20));
+			if (sessionGone->load()) {
+				break;
+			}
 			if (floodWait->load()) {
 				std::this_thread::sleep_for(std::chrono::seconds(20));
 			}

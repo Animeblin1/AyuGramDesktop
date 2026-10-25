@@ -9,8 +9,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <algorithm>
 
-#include "ayu/ayu_settings.h"
-
 #include "apiwrap.h"
 #include "api/api_peer_colors.h"
 #include "data/data_emoji_statuses.h"
@@ -26,17 +24,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/custom_emoji_helper.h"
 #include "styles/style_layers.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Ui {
 namespace {
-
-rpl::event_stream<ProfileGradientScroll> &ProfileGradientScrollStream() {
-	static rpl::event_stream<ProfileGradientScroll> stream;
-	return stream;
-}
-
-float ProfileGradientFadeValue(int top) {
-	return std::clamp(1. - top / 600., 0., 1.);
-}
 
 void PrepareImage(
 		QImage &image,
@@ -319,15 +312,14 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 		|| peer->isSavedHiddenAuthor()) {
 		return std::nullopt;
 	}
-	const auto key = ((quint64(peer->id.value) << 24)
-		^ quint64(peer->userpicPhotoId()));
-	static auto cached = base::flat_map<quint64, AvatarGradient>();
+	auto view = peer->createUserpicView();
+	const auto key = peer->userpicUniqueKey(view);
+	static auto cached = base::flat_map<InMemoryKey, AvatarGradient>();
 	const auto it = cached.find(key);
 	if (it != cached.end()) {
 		return it->second;
 	}
 	auto result = AvatarGradient();
-	auto view = peer->createUserpicView();
 	if (!peer->useEmptyUserpic(view)) {
 		auto image = PeerData::GenerateUserpicImage(
 			peer,
@@ -391,21 +383,14 @@ AvatarGradient AvatarGradientColorsFor(not_null<PeerData*> peer) {
 		const auto index = Ui::EmptyUserpic::ColorIndex(peer->id.value);
 		const auto bg = Ui::EmptyUserpic::UserpicColor(index);
 		result = std::make_pair(bg.color1->c, bg.color2->c);
+		return result;
 	}
 	cached.emplace(key, result);
 	return result;
 }
 
-void PublishProfileGradientScroll(ProfileGradientScroll scroll) {
-	ProfileGradientScrollStream().fire(std::move(scroll));
-}
-
-rpl::producer<ProfileGradientScroll> ProfileGradientScrollEvents() {
-	return ProfileGradientScrollStream().events();
-}
-
 float ProfileGradientFadeFor(int top) {
-	return ProfileGradientFadeValue(top);
+	return std::clamp(1. - top / 600., 0., 1.);
 }
 
 } // namespace Ui

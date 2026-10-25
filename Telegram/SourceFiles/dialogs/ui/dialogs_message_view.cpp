@@ -479,10 +479,12 @@ void MessageView::paint(
 			y,
 			st::dialogsMiniPreview);
 		if (const auto user = _miniSender->asUser()) {
-			if (Data::IsUserOnline(user, base::unixtime::now())) {
+			if (AyuSettings::getInstance().onlineIndicator()
+				&& Data::IsUserOnline(user, base::unixtime::now())) {
 				const auto size = st::dialogsMiniPreview;
 				const auto dot = size / 3.5;
 				const auto stroke = st::lineWidth * 2;
+				p.save();
 				p.setPen(QPen(st::windowBg, stroke));
 				p.setBrush(st::dialogsOnlineBadgeFg);
 				p.drawEllipse(QRectF(
@@ -490,12 +492,7 @@ void MessageView::paint(
 					y + size - dot,
 					dot,
 					dot));
-				p.setPen(context.active
-					? st::dialogsTextFgActive
-					: context.selected
-					? st::dialogsTextFgOver
-					: st::dialogsTextFg);
-				p.setBrush(Qt::NoBrush);
+				p.restore();
 			}
 		}
 		rect.setLeft(rect.x()

@@ -105,6 +105,7 @@ public:
 	virtual void setIsStackBottom(bool isStackBottom);
 	[[nodiscard]] bool isStackBottom() const;
 
+	[[nodiscard]] rpl::producer<int> scrollTopValue() const;
 	rpl::producer<int> scrollHeightValue() const;
 	rpl::producer<int> desiredHeightValue() const override;
 	virtual rpl::producer<bool> desiredShadowVisibility() const;
@@ -220,7 +221,6 @@ protected:
 	int scrollTopSave() const;
 	void scrollTopRestore(int scrollTop);
 	void scrollTo(const Ui::ScrollToRequest &request);
-	[[nodiscard]] rpl::producer<int> scrollTopValue() const;
 	[[nodiscard]] int innerTopReserve() const {
 		return _innerTopReserve;
 	}
@@ -265,10 +265,6 @@ private:
 
 	// To paint round edges from content.
 	style::margins _paintPadding;
-
-	// Ayu: last avatar photo id seen while painting the card gradient.
-	uint64 _ayuGradientPhotoId = 0;
-	int _ayuScrollTop = 0;
 
 	Ui::Controls::SwipeBackResult _swipeBackData;
 	SwipeInterceptor _swipeInterceptor;

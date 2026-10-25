@@ -6,6 +6,8 @@
 // Copyright @Radolyn, 2026
 #include "ayu/ui/components/inline_calculator.h"
 
+#include "ayu/ayu_settings.h"
+#include "ui/widgets/fields/input_field.h"
 #include "ui/painter.h"
 #include "styles/style_basic.h"
 
@@ -21,8 +23,7 @@ constexpr auto kE = 2.71828182845904523536;
 class Parser {
 public:
 	explicit Parser(const QString &text)
-	: _text(text)
-	, _p(text.constData())
+	: _p(text.constData())
 	, _end(text.constData() + text.size()) {
 	}
 
@@ -31,7 +32,7 @@ public:
 	}
 
 private:
-	const QString &_text;
+	int _depth = 0;
 	const QChar *_p = nullptr;
 	const QChar *_end = nullptr;
 
@@ -91,21 +92,21 @@ private:
 	}
 
 	bool parseTerm(double &out) {
-		if (!parsePower(out)) {
+		if (!parseUnary(out)) {
 			return false;
 		}
 		for (;;) {
 			if (peek('*')) {
 				++_p;
 				double rhs = 0.;
-				if (!parsePower(rhs)) {
+				if (!parseUnary(rhs)) {
 					return false;
 				}
 				out *= rhs;
 			} else if (peek('/')) {
 				++_p;
 				double rhs = 0.;
-				if (!parsePower(rhs)) {
+				if (!parseUnary(rhs)) {
 					return false;
 				}
 				if (rhs == 0.) {
@@ -115,7 +116,7 @@ private:
 			} else if (peek('%')) {
 				++_p;
 				double rhs = 0.;
-				if (!parsePower(rhs)) {
+				if (!parseUnary(rhs)) {
 					return false;
 				}
 				if (rhs == 0.) {
@@ -129,13 +130,13 @@ private:
 	}
 
 	bool parsePower(double &out) {
-		if (!parseUnary(out)) {
+		if (!parsePrimary(out)) {
 			return false;
 		}
 		if (peek('^')) {
 			++_p;
 			double rhs = 0.;
-			if (!parsePower(rhs)) { // right associative
+			if (!parseUnary(rhs)) { // right associative
 				return false;
 			}
 			out = std::pow(out, rhs);
@@ -147,6 +148,11 @@ private:
 	}
 
 	bool parseUnary(double &out) {
+		if (_depth >= 128) {
+			return false;
+		}
+		++_depth;
+		const auto guard = gsl::finally([&] { --_depth; });
 		if (match('-')) {
 			double inner = 0.;
 			if (!parseUnary(inner)) {
@@ -157,7 +163,7 @@ private:
 		} else if (match('+')) {
 			return parseUnary(out);
 		}
-		return parsePrimary(out);
+		return parsePower(out);
 	}
 
 	bool parsePrimary(double &out) {
@@ -269,6 +275,51 @@ private:
 
 } // namespace
 
+void SetupInlineCalculator(
+		not_null<Ui::RpWidget*> parent,
+		not_null<Ui::InputField*> field) {
+	const auto panel = new InlineCalculatorPanel(parent);
+	field->lifetime().add([panel = QPointer<InlineCalculatorPanel>(panel)] {
+		delete panel.data();
+	});
+	panel->applyRequests() | rpl::on_next([=](const QString &result) {
+		field->setText(result);
+		field->setFocusFast();
+	}, field->lifetime());
+	const auto refresh = [=] {
+		const auto text = field->getLastText();
+		auto value = 0.;
+		if (!AyuSettings::getInstance().inlineCalculator()
+			|| !field->isVisibleTo(parent)
+			|| !text.startsWith('=')
+			|| text.contains('\n')
+			|| !EvaluateMathExpression(text.mid(1), value)) {
+			panel->hide();
+			return;
+		}
+		panel->updateResult(text.mid(1).trimmed(), FormatMathResult(value));
+		const auto position = field->mapTo(parent, QPoint());
+		panel->move(
+			std::max(0, position.x() + field->width() - panel->width()),
+			std::max(0, position.y() - panel->height() - st::lineWidth * 4));
+		panel->show();
+		panel->raise();
+	};
+	const auto container = dynamic_cast<Ui::RpWidget*>(field->parentWidget());
+	if (container && container != parent.get()) {
+		rpl::merge(
+			container->geometryValue() | rpl::to_empty,
+			container->shownValue() | rpl::to_empty
+		) | rpl::on_next(refresh, field->lifetime());
+	}
+	rpl::merge(
+		field->changes(),
+		field->geometryValue() | rpl::to_empty,
+		field->shownValue() | rpl::to_empty,
+		AyuSettings::getInstance().inlineCalculatorValue() | rpl::to_empty
+	) | rpl::on_next(refresh, field->lifetime());
+}
+
 QString FormatMathResult(double value) {
 	const auto rounded = std::round(value);
 	if (std::abs(value - rounded) < 1e-9 && std::abs(value) < 1e15) {
@@ -312,15 +363,7 @@ void InlineCalculatorPanel::updateResult(
 		- 4 * pad
 		- exprFont->width(sep)
 		- resFont->width(result);
-	auto expr = expression;
-	if (exprFont->width(expr) > available && available > 0) {
-		while (!expr.isEmpty()
-			&& exprFont->width(expr + QStringLiteral("…")) > available) {
-			expr.chop(1);
-		}
-		expr += QStringLiteral("…");
-	}
-	_expression = expr;
+	_expression = exprFont->elided(expression, std::max(0, available));
 	_result = result;
 
 	const auto w = pad * 2
@@ -328,7 +371,7 @@ void InlineCalculatorPanel::updateResult(
 		+ exprFont->width(sep)
 		+ resFont->width(_result);
 	const auto h = 2 * pad + exprFont->height;
-	resize(w, h);
+	resize(std::min(w, parentWidget()->width()), h);
 	update();
 }
 

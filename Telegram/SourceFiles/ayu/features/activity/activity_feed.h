@@ -31,7 +31,9 @@ void HandleSendAction(
 	const QString &actionText,
 	const QString &topicName,
 	bool typing,
-	TimeId when);
+	TimeId when,
+	MsgId topic = 0,
+	bool cancel = false);
 
 // e.g. { "печатает — «Chat Name» (Topic)" }, nullopt if the user is idle.
 [[nodiscard]] std::optional<Activity> CurrentActivity(
