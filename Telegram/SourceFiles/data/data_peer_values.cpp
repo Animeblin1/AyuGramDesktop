@@ -530,7 +530,7 @@ QString OnlineText(not_null<UserData*> user, TimeId now) {
 		return *special;
 	}
 	if (const auto activity = Ayu::ActivityFeed::CurrentActivity(user)) {
-		return *activity;
+		return activity->text;
 	}
 	return OnlineText(user->lastseen(), now);
 }
@@ -540,7 +540,7 @@ QString OnlineTextFull(not_null<UserData*> user, TimeId now) {
 		return *special;
 	} else if (const auto activity
 		= Ayu::ActivityFeed::CurrentActivity(user)) {
-		return *activity;
+		return activity->text;
 	} else if (const auto common = OnlineTextCommon(user->lastseen(), now)) {
 		return *common;
 	}

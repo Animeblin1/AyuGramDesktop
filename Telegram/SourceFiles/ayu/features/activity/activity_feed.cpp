@@ -17,6 +17,7 @@ namespace {
 
 struct Entry {
 	QString text;
+	bool typing = false;
 	crl::time until = 0;
 };
 
@@ -36,6 +37,8 @@ void HandleSendAction(
 		not_null<UserData*> from,
 		not_null<PeerData*> where,
 		const QString &actionText,
+		const QString &topicName,
+		bool typing,
 		TimeId when) {
 	const auto &settings = AyuSettings::getInstance();
 	if (!settings.liveUserActivity() || actionText.isEmpty()) {
@@ -47,12 +50,16 @@ void HandleSendAction(
 		entry.text = actionText;
 	} else {
 		entry.text = QString("%1 — «%2»").arg(actionText, where->name());
+		if (!topicName.isEmpty()) {
+			entry.text += QString(" (%1)").arg(topicName);
+		}
 	}
+	entry.typing = typing;
 	entry.until = crl::now() + 7000;
 	ChangedStream().fire({});
 }
 
-std::optional<QString> CurrentActivity(not_null<UserData*> user) {
+std::optional<Activity> CurrentActivity(not_null<UserData*> user) {
 	const auto &settings = AyuSettings::getInstance();
 	if (!settings.liveUserActivity()) {
 		return std::nullopt;
@@ -67,7 +74,7 @@ std::optional<QString> CurrentActivity(not_null<UserData*> user) {
 		ChangedStream().fire({});
 		return std::nullopt;
 	}
-	return i->second.text;
+	return Activity{ i->second.text, i->second.typing };
 }
 
 rpl::producer<> ActivityChanged() {

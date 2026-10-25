@@ -81,6 +81,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_worker.h"
 #include "ayu/features/activity/activity_feed.h"
+#include "data/data_forum.h"
 #include "lang/lang_keys.h"
 #include "lang_auto.h"
 
@@ -1179,10 +1180,23 @@ void Updates::handleSendActionUpdate(
 		}
 		return;
 	}
+	const auto typing = (action.type() == mtpc_sendMessageTypingAction)
+		|| (action.type() == mtpc_sendMessageChooseContactAction)
+		|| (action.type() == mtpc_sendMessageGeoLocationAction);
+	QString topicName;
+	if (rootId) {
+		if (const auto forum = peer->forum()) {
+			if (const auto topic = forum->topicFor(rootId)) {
+				topicName = topic->title();
+			}
+		}
+	}
 	Ayu::ActivityFeed::HandleSendAction(
 		from->asUser(),
 		peer,
 		ActivityActionText(action),
+		topicName,
+		typing,
 		when);
 	session().data().sendActionManager().registerFor(
 		history,

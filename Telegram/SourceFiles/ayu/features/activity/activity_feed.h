@@ -15,6 +15,13 @@ class UserData;
 
 namespace Ayu::ActivityFeed {
 
+struct Activity {
+	QString text;
+	// True when the action is a text-typing one - the UI can attach
+	// the classic typing dots animation to it.
+	bool typing = false;
+};
+
 // Aggregates the public send-action updates (typing, media recording /
 // uploading, ...) the client already receives for every chat it is a
 // member of, and exposes the freshest one per user for the status line.
@@ -22,10 +29,13 @@ void HandleSendAction(
 	not_null<UserData*> from,
 	not_null<PeerData*> where,
 	const QString &actionText,
+	const QString &topicName,
+	bool typing,
 	TimeId when);
 
-// e.g. "печатает — «Chat Name»", nullopt if the user is idle.
-[[nodiscard]] std::optional<QString> CurrentActivity(not_null<UserData*> user);
+// e.g. { "печатает — «Chat Name» (Topic)" }, nullopt if the user is idle.
+[[nodiscard]] std::optional<Activity> CurrentActivity(
+	not_null<UserData*> user);
 
 [[nodiscard]] rpl::producer<> ActivityChanged();
 
