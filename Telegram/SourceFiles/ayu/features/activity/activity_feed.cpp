@@ -102,13 +102,16 @@ std::optional<Activity> CurrentActivity(not_null<UserData*> user) {
 		return std::nullopt;
 	}
 	const auto &entries = SessionFeed(user).entries;
-	const auto i = ranges::find_if(entries, [&](const auto &entry) {
-		return std::get<0>(entry.first) == user->id
-			&& crl::now() < entry.second.until;
-	});
-	return (i != entries.end())
-		? std::make_optional(i->second.activity)
-		: std::nullopt;
+	const auto now = crl::now();
+	const Entry *latest = nullptr;
+	for (const auto &[key, entry] : entries) {
+		if (std::get<0>(key) == user->id
+			&& now < entry.until
+			&& (!latest || entry.until > latest->until)) {
+			latest = &entry;
+		}
+	}
+	return latest ? std::make_optional(latest->activity) : std::nullopt;
 }
 
 void ClearActivity(
