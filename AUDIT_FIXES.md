@@ -21,6 +21,19 @@ First-pass audit of the first-party project: build/CI, settings and local persis
 - Regex filters: pathological imported/local patterns could monopolize UI matching. Set ICU time/stack limits, check matcher errors and do not apply inverse matching after failure.
 - Windows build-report script: Unicode multiplication sign crashed cp1251 stdout. Use an ASCII separator.
 
+## Focused follow-up: only our added features
+
+- Masked inputs installed a caret-hiding proxy style and then replaced it with the ordinary input style; move the cursor-width override into the style actually used.
+- Studio reset now updates reactive slider/toggle/color labels instead of leaving stale controls; wheel-step input also follows external setting changes.
+- Online indicators now cover the modern message list used by topics/replies, not only classic history.
+- Actual incoming messages clear their matching user/chat/topic activity immediately.
+- Concurrent activity uses a user/chat/topic key and selects the newest live entry, not the first chat by ID.
+- Caret speed, blink interval and scroll speed validate their ranges at setter entry.
+- Explicit scroll navigation cancels pending wheel glides so they cannot pull the view back to the previous target.
+- An already-open profile refreshes immediately when avatar-gradient preference changes.
+- Windows Release run 40257544664 compiled successfully; it predates the latest activity selection, setting validation, explicit-navigation and gradient-toggle changes. Those changes require their own CI verification.
+- Added `Telegram/build/tests/check_feature_audit.cjs`; all source checks remain structural checks, not GUI tests.
+
 ## Checks
 
 Executed successfully before CI:
@@ -38,7 +51,7 @@ The new source-contract checks and scrolling model do not prove Qt runtime behav
 
 - No crash dump was supplied: the hidden-author null dereference is confirmed in source and fits Saved Messages, but an actual client reproduction is still required to rule out additional crashes.
 - Ayu's retained edited/deleted-message database remains ordinary plaintext SQLite. Redesigning at-rest protection requires a migration/key-management plan; no destructive encryption migration was attempted.
-- One freshest received action per user is shown; cancelling it does not restore an older concurrent action. Telegram only exposes activity updates it actually delivers to this account; no polling of arbitrary chats or activity inference was added.
+- Active signals are keyed by session, user, chat and topic; the most recently updated unexpired signal is shown. Telegram only exposes activity updates it actually delivers to this account; no polling of arbitrary chats or activity inference was added.
 - Activity context wording inherited Russian strings; complete localization and action-specific animation coverage remain follow-up work.
 - Photo-gradient cache remains unbounded. Cache policy is not a confirmed immediate crash and was not redesigned.
 - Regex caps are per matcher, not a total per-frame budget for arbitrarily many configured filters.
