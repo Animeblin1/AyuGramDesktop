@@ -77,6 +77,7 @@ assert.match(gradient, /const auto key = peer->userpicUniqueKey\(view\);/);
 assert.match(gradient, /base::flat_map<InMemoryKey, AvatarGradient>/);
 assert.match(topbar, /AvatarGradientColorsFor\(_peer\) != _ayuGradientColors/);
 assert.match(topbar, /Data::PeerUpdate::Flag::Photo/);
+assert.match(topbar, /profileGradientFromAvatarChanges\(/);
 const fade = top => Math.min(Math.max(1 - top / 600, 0), 1);
 assert.deepEqual([-50, 0, 300, 600, 900].map(fade), [1, 1, 0.5, 0, 0]);
 console.log('PASS: scroll/gradient source contracts and timing model (not Qt runtime or pixel tests).');
