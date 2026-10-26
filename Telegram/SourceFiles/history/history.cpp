@@ -86,6 +86,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ayu_settings.h"
+#include "ayu/features/activity/activity_feed.h"
 #include "ayu/ayu_state.h"
 
 
@@ -1689,6 +1690,7 @@ void History::newItemAdded(not_null<HistoryItem*> item, NewAddType type) {
 		if (from == item->author()) {
 			_sendActionPainter.clear(from);
 			owner().sendActionManager().repliesPaintersClear(this, from);
+			Ayu::ActivityFeed::ClearActivity(from, peer, item->topicRootId());
 		}
 		from->madeAction(item->date());
 	}

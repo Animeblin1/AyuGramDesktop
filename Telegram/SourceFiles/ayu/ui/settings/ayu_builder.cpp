@@ -60,12 +60,14 @@ Ui::SettingsButton *AyuSectionBuilder::addSettingToggle(
 		.icon = std::move(args.icon),
 		.keywords = std::move(args.keywords),
 		.shown = std::move(args.shown),
+		.value = std::move(args.value),
 	});
 }
 
 Ui::SettingsButton *AyuSectionBuilder::addToggle(ToggleArgs &&args) {
 	auto getter = std::move(args.getter);
 	auto setter = std::move(args.setter);
+	auto value = std::move(args.value);
 	const auto initialValue = getter();
 
 	const auto button = _builder.addButton({
@@ -74,7 +76,7 @@ Ui::SettingsButton *AyuSectionBuilder::addToggle(ToggleArgs &&args) {
 		.title = std::move(args.title),
 		.st = args.icon.icon ? nullptr : &st::settingsButtonNoIcon,
 		.icon = std::move(args.icon),
-		.toggled = rpl::single(initialValue),
+		.toggled = value ? std::move(value) : rpl::single(initialValue),
 		.keywords = std::move(args.keywords),
 		.shown = std::move(args.shown),
 	});
@@ -232,6 +234,7 @@ void AyuSectionBuilder::addSlider(SliderArgs &&args) {
 			auto indexToValue = std::move(args.indexToValue);
 			auto onChanged = std::move(args.onChanged);
 			auto onFinalChanged = std::move(args.onFinalChanged);
+			auto value = std::move(args.value);
 
 			if (formatLabel) {
 				label->setText(formatLabel(args.current));
@@ -259,6 +262,23 @@ void AyuSectionBuilder::addSlider(SliderArgs &&args) {
 						onFinalChanged(value);
 					}
 				});
+			if (value) {
+				std::move(value) | rpl::on_next([=](int current) {
+					int index = 0;
+					for (; index != args.steps; ++index) {
+						if ((indexToValue ? indexToValue(index) : index) == current) {
+							break;
+						}
+					}
+					if (index == args.steps) {
+						return;
+					}
+					slider->setValue(index / float64(args.steps - 1));
+					if (formatLabel) {
+						label->setText(formatLabel(current));
+					}
+				}, container->lifetime());
+			}
 		}, [&](const Builder::SearchContext &sctx) {
 			if (!id.isEmpty() && args.showTitle) {
 				sctx.entries->push_back({

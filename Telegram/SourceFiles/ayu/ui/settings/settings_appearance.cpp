@@ -257,18 +257,21 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_SmoothCaret(),
 		.getter = &AyuSettings::smoothCaret,
 		.setter = &AyuSettings::setSmoothCaret,
+		.value = settings->smoothCaretValue(),
 	});
 	ayu.addSettingToggle({
 		.id = u"ayu/caretBlink"_q,
 		.title = tr::ayu_CaretBlink(),
 		.getter = &AyuSettings::caretBlink,
 		.setter = &AyuSettings::setCaretBlink,
+		.value = settings->caretBlinkValue(),
 	});
 	ayu.addSlider({
 		.id = u"ayu/caretSpeedSlider"_q,
 		.title = tr::ayu_CaretSpeed(),
 		.steps = 101,
 		.current = settings->caretSpeed(),
+		.value = settings->caretSpeedValue(),
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setCaretSpeed(val);
 		},
@@ -281,6 +284,7 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_BlinkRate(),
 		.steps = 801,
 		.current = settings->blinkMs() - 200,
+		.value = settings->blinkMsValue() | rpl::map([](int value) { return value - 200; }),
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setBlinkMs(val + 200);
 		},
@@ -293,17 +297,20 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_CaretAccent(),
 		.getter = &AyuSettings::caretAccent,
 		.setter = &AyuSettings::setCaretAccent,
+		.value = settings->caretAccentValue(),
 	});
 
 	builder.addButton({
 		.id = u"ayu/caretColor"_q,
 		.title = tr::ayu_CaretColor(),
 		.st = &st::settingsButtonNoIcon,
-		.label = rpl::single(settings->caretCustomColor()
-			? (QString(u"#") + QString::number(
-				settings->caretCustomColor() & 0xFFFFFFu,
-				16).right(6).toUpper())
-			: tr::ayu_CaretColorAuto(tr::now)),
+		.label = settings->caretCustomColorValue() | rpl::map([](unsigned color) {
+			return color
+				? (QString(u"#") + QString::number(
+					color & 0xFFFFFFu,
+					16).right(6).toUpper())
+				: tr::ayu_CaretColorAuto(tr::now);
+		}),
 		.onClick = [=] {
 			const auto initial = settings->caretCustomColor()
 				? QColor::fromRgb(settings->caretCustomColor() & 0xFFFFFFu)
@@ -333,6 +340,7 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 			s.setCaretCustomColor(0);
 			s.setScrollSpeed(50);
 			s.setWheelScrollStep(100);
+			s.setSmoothCaret(true);
 		},
 	});
 
@@ -341,6 +349,7 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_ScrollSmoothness(),
 		.steps = 101,
 		.current = settings->scrollSpeed(),
+		.value = settings->scrollSpeedValue(),
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setScrollSpeed(val);
 		},
