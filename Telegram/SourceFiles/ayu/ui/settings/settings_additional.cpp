@@ -17,6 +17,7 @@
 #include <QtWidgets/QColorDialog>
 #include <QtWidgets/QTextEdit>
 
+#include "styles/style_ayu_styles.h"
 #include "styles/style_boxes.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
