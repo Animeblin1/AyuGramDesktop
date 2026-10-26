@@ -24,6 +24,9 @@ for (const [file, type, actual] of [
   ['elastic_scroll.cpp', 'ElasticScroll', '_state.visibleFrom'],
 ]) {
   const source = read(`Telegram/lib_ui/ui/widgets/${file}`);
+  const jump = body(source, type === 'ScrollArea' ? 'void ScrollArea::scrollToY(' : 'void ElasticScroll::scrollTo(int');
+  assert.match(jump, /_smoothActive = false;/);
+  assert.match(jump, /_smoothWheelTimer.cancel\(\);/);
   const start = body(source, `void ${type}::startSmoothWheel(`);
   const init = body(start, 'if (!_smoothActive)');
   assert.match(init, /_smoothLast = crl::now\(\);/);
