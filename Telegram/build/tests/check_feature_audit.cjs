@@ -33,5 +33,14 @@ const appearance = read('Telegram/SourceFiles/ayu/ui/settings/settings_appearanc
 assert.match(appearance, /settings->smoothCaretValue\(\)/);
 assert.match(appearance, /settings->caretSpeedValue\(\)/);
 assert.match(appearance, /wheelScrollStepValue\(/);
+const sliderHeader = read('Telegram/SourceFiles/ayu/ui/settings/ayu_builder.h');
+const fields = [...sliderHeader.match(/struct SliderArgs \{([\s\S]*?)\n\s*\};/)[1].matchAll(/^\s*[^;\r\n]+?\s+(\w+)(?:\s*=.*)?;/gm)].map(m => m[1]);
+for (const source of [appearance, read('Telegram/SourceFiles/ayu/ui/settings/settings_chats.cpp')]) {
+  for (const block of source.matchAll(/ayu\.addSlider\(\{([\s\S]*?)\n\t\}\);/g)) {
+    const names = [...block[1].matchAll(/^\t\t\.(\w+)\s*=/gm)].map(m => m[1]);
+    const indices = names.map(name => { assert.ok(fields.includes(name), `Unknown slider field ${name}`); return fields.indexOf(name); });
+    assert.deepEqual(indices, [...indices].sort((a, b) => a - b), `C++ slider designators out of order: ${names}`);
+  }
+}
 
 console.log('PASS: focused feature-audit source contracts (not runtime tests).');
