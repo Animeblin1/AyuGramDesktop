@@ -78,36 +78,6 @@ void BuildStickersAndEmoji(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	ayu.addSectionDivider();
 }
 
-void BuildAvatars(SectionBuilder &builder, AyuSectionBuilder &ayu) {
-	builder.addSubsectionTitle(tr::ayu_AvatarsHeader());
-
-	ayu.addSettingToggle({
-		.id = u"ayu/senderMiniAvatars"_q,
-		.title = tr::ayu_MiniAvatars(),
-		.getter = &AyuSettings::senderMiniAvatars,
-		.setter = &AyuSettings::setSenderMiniAvatars,
-	});
-	ayu.addSettingToggle({
-		.id = u"ayu/onlineIndicator"_q,
-		.title = tr::ayu_OnlineIndicator(),
-		.getter = &AyuSettings::onlineIndicator,
-		.setter = &AyuSettings::setOnlineIndicator,
-	});
-
-	ayu.addSectionDivider();
-}
-
-void BuildActivity(SectionBuilder &builder, AyuSectionBuilder &ayu) {
-	ayu.addSettingToggle({
-		.id = u"ayu/liveUserActivity"_q,
-		.title = tr::ayu_LiveUserActivity(),
-		.getter = &AyuSettings::liveUserActivity,
-		.setter = &AyuSettings::setLiveUserActivity,
-	});
-
-	ayu.addSectionDivider();
-}
-
 void BuildGroupsAndChannels(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	auto *settings = &AyuSettings::getInstance();
 
@@ -453,13 +423,6 @@ void BuildMessageFieldElements(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.icon = { &st::messageFieldCocoonAiIcon },
 	});
 
-	ayu.addSettingToggle({
-		.id = u"ayu/inlineCalculator"_q,
-		.title = tr::ayu_InlineCalculator(),
-		.getter = &AyuSettings::inlineCalculator,
-		.setter = &AyuSettings::setInlineCalculator,
-	});
-
 	ayu.addSectionDivider();
 }
 
@@ -493,8 +456,6 @@ const auto kMeta = BuildHelper({
 
 	builder.addSkip();
 	BuildStickersAndEmoji(builder, ayu);
-	BuildAvatars(builder, ayu);
-	BuildActivity(builder, ayu);
 	BuildGroupsAndChannels(builder, ayu);
 	BuildMarks(builder, ayu, previewState);
 	BuildWideMessagesMultiplier(builder, ayu, previewState);
