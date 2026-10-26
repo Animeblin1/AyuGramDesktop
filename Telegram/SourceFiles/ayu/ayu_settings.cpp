@@ -693,6 +693,7 @@ void AyuSettings::setWebAppsWindowed(bool val) {
 	save();
 }
 void AyuSettings::setCaretSpeed(int val) {
+	val = std::clamp(val, 0, 100);
 	if (_caretSpeed.current() == val) return;
 	_caretSpeed = val;
 	AyuUiSettings::setCaretSpeed(val);
@@ -707,6 +708,7 @@ void AyuSettings::setCaretBlink(bool val) {
 }
 
 void AyuSettings::setBlinkMs(int val) {
+	val = std::clamp(val, 200, 1000);
 	if (_blinkMs.current() == val) return;
 	_blinkMs = val;
 	AyuUiSettings::setBlinkMs(val);
@@ -721,6 +723,7 @@ void AyuSettings::setCaretAccent(bool val) {
 }
 
 void AyuSettings::setScrollSpeed(int val) {
+	val = std::clamp(val, 0, 100);
 	if (_scrollSpeed.current() == val) return;
 	_scrollSpeed = val;
 	AyuUiSettings::setScrollSmoothSpeed(val);

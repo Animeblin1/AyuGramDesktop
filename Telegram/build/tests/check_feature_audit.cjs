@@ -11,6 +11,13 @@ assert.match(list, /p\.save\(\)[\s\S]*?dialogsOnlineBadgeFg[\s\S]*?p\.restore\(\
 const feed = read('Telegram/SourceFiles/ayu/features/activity/activity_feed.cpp');
 assert.match(feed, /std::tuple<PeerId, PeerId, MsgId>/);
 assert.match(feed, /std::tuple\{ from->id, where->id, topic \}/);
+assert.match(feed, /entry\.until > latest->until/);
+assert.doesNotMatch(feed, /ranges::find_if\(entries/);
+
+const setters = read('Telegram/SourceFiles/ayu/ayu_settings.cpp');
+for (const [name, min, max] of [['CaretSpeed', 0, 100], ['ScrollSpeed', 0, 100], ['BlinkMs', 200, 1000]]) {
+  assert.ok(setters.includes(`void AyuSettings::set${name}(int val) {\n\tval = std::clamp(val, ${min}, ${max});`) || setters.includes(`void AyuSettings::set${name}(int val) {\r\n\tval = std::clamp(val, ${min}, ${max});`), `${name} must validate at the setter boundary`);
+}
 
 const history = read('Telegram/SourceFiles/history/history.cpp');
 assert.match(history, /Ayu::ActivityFeed::ClearActivity\(from, peer, item->topicRootId\(\)\)/);
