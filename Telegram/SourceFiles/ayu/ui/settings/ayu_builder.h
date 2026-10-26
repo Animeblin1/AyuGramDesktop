@@ -28,6 +28,7 @@ public:
 		IconDescriptor icon;
 		QStringList keywords;
 		rpl::producer<bool> shown;
+		rpl::producer<bool> value;
 	};
 	Ui::SettingsButton *addSettingToggle(SettingToggleArgs &&args);
 
@@ -40,6 +41,7 @@ public:
 		IconDescriptor icon;
 		QStringList keywords;
 		rpl::producer<bool> shown;
+		rpl::producer<bool> value;
 	};
 	Ui::SettingsButton *addToggle(ToggleArgs &&args);
 
@@ -78,6 +80,7 @@ public:
 		Fn<void(int)> onFinalChanged;
 		Fn<QString(int)> formatLabel;
 		QStringList keywords;
+		rpl::producer<int> value;
 	};
 	void addSlider(SliderArgs &&args);
 

@@ -35,6 +35,11 @@ void HandleSendAction(
 	MsgId topic = 0,
 	bool cancel = false);
 
+void ClearActivity(
+	not_null<UserData*> from,
+	not_null<PeerData*> where,
+	MsgId topic = 0);
+
 // e.g. { "печатает — «Chat Name» (Topic)" }, nullopt if the user is idle.
 [[nodiscard]] std::optional<Activity> CurrentActivity(
 	not_null<UserData*> user);

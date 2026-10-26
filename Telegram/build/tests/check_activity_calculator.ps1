@@ -14,11 +14,11 @@ Check (!$compose.Contains('_inlineCalculatorPanel')) 'Do not retain divergent ca
 Check ($calculator.Contains('field->geometryValue()') -and $calculator.Contains('container->geometryValue()')) 'Calculator must follow field and wrapper geometry.'
 Check ($calculator.Contains('inlineCalculatorValue()') -and $calculator.Contains('field->shownValue()')) 'Calculator must follow setting and visibility changes.'
 Check ($calculator.Contains('_depth >= 128')) 'Parser recursion must remain bounded.'
-$getter = [regex]::Match($feed, '(?s)std::optional<Activity> CurrentActivity.*?(?=rpl::producer)').Value
+$getter = [regex]::Match($feed, '(?s)std::optional<Activity> CurrentActivity.*?(?=void ClearActivity)').Value
 Check (!$getter.Contains('.fire(') -and !$getter.Contains('.erase(')) 'Activity getter must not synchronously mutate/fire during UI refresh.'
 Check ($feed.Contains('session->lifetime().make_state<Feed>()')) 'Activity state must belong to a session.'
 Check ($feed.Contains('timer.callEach(1000)') -and $feed.Contains('i->second.until <= now')) 'Activity must expire without UI polling.'
-Check ($feed.Contains('i->second.where == where->id') -and $feed.Contains('i->second.topic == topic')) 'Cancel must not clear another chat/topic activity.'
+Check ($feed.Contains('feed.entries.erase(std::pair{ where->id, topic })') -or $feed.Contains('std::tuple{ from->id, where->id, topic }')) 'Cancel must be scoped to chat/topic activity.'
 Check ($feed.Contains('|| !when')) 'Ignore replayed difference actions.'
 Check ($updates.Contains('action.type() == mtpc_sendMessageCancelAction')) 'Updates must forward cancel actions.'
 Check ($profile.Contains('_refreshTimer.callOnce(updateIn)')) 'Offline profile status must keep updating.'

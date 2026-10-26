@@ -18,8 +18,6 @@ namespace {
 
 struct Entry {
 	Activity activity;
-	PeerId where;
-	MsgId topic = 0;
 	crl::time until = 0;
 };
 
@@ -29,7 +27,7 @@ rpl::event_stream<> &ChangedStream() {
 }
 
 struct Feed {
-	base::flat_map<PeerId, Entry> entries;
+	base::flat_map<std::tuple<PeerId, PeerId, MsgId>, Entry> entries;
 	base::Timer timer{ [=] {
 		const auto now = crl::now();
 		auto changed = false;
@@ -77,18 +75,14 @@ void HandleSendAction(
 	}
 	auto &feed = SessionFeed(from);
 	if (cancel) {
-		const auto i = feed.entries.find(from->id);
-		if (i != feed.entries.end()
-			&& i->second.where == where->id
-			&& i->second.topic == topic) {
-			feed.entries.erase(i);
+		if (feed.entries.erase(std::tuple{ from->id, where->id, topic })) {
 			ChangedStream().fire({});
 		}
 		return;
 	} else if (actionText.isEmpty()) {
 		return;
 	}
-	auto &entry = feed.entries[from->id];
+	auto &entry = feed.entries[{ from->id, where->id, topic }];
 	entry.activity.text = where->isUser()
 		? actionText
 		: u"%1 в «%2»"_q.arg(actionText, where->name());
@@ -96,8 +90,6 @@ void HandleSendAction(
 		entry.activity.text += u" в «%1»"_q.arg(topicName);
 	}
 	entry.activity.typing = typing;
-	entry.where = where->id;
-	entry.topic = topic;
 	entry.until = crl::now() + 7000;
 	if (!feed.timer.isActive()) {
 		feed.timer.callEach(1000);
@@ -110,10 +102,26 @@ std::optional<Activity> CurrentActivity(not_null<UserData*> user) {
 		return std::nullopt;
 	}
 	const auto &entries = SessionFeed(user).entries;
-	const auto i = entries.find(user->id);
-	return (i != entries.end() && crl::now() < i->second.until)
+	const auto i = ranges::find_if(entries, [&](const auto &entry) {
+		return std::get<0>(entry.first) == user->id
+			&& crl::now() < entry.second.until;
+	});
+	return (i != entries.end())
 		? std::make_optional(i->second.activity)
 		: std::nullopt;
+}
+
+void ClearActivity(
+		not_null<UserData*> from,
+		not_null<PeerData*> where,
+		MsgId topic) {
+	auto &feed = SessionFeed(from);
+	const auto key = std::tuple{ from->id, where->id, topic };
+	const auto i = feed.entries.find(key);
+	if (i != feed.entries.end()) {
+		feed.entries.erase(i);
+		ChangedStream().fire({});
+	}
 }
 
 rpl::producer<> ActivityChanged() {

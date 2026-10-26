@@ -3317,6 +3317,24 @@ void ListWidget::paintUserpics(
 			} else {
 				Unexpected("Corrupt forwarded information in message.");
 			}
+			if (const auto from = item->displayFrom()) {
+				if (const auto user = from->asUser();
+					user
+					&& AyuSettings::getInstance().onlineIndicator()
+					&& Data::IsUserOnline(user, base::unixtime::now())) {
+					const auto dot = st::msgPhotoSize / 3.5;
+					const auto stroke = st::lineWidth * 2;
+					p.save();
+					p.setPen(QPen(st::windowBg, stroke));
+					p.setBrush(st::dialogsOnlineBadgeFg);
+					p.drawEllipse(QRectF(
+						st::historyPhotoLeft + st::msgPhotoSize - dot,
+						userpicTop + st::msgPhotoSize - dot,
+						dot,
+						dot));
+					p.restore();
+				}
+			}
 			if (shift) {
 				p.translate(-shift, 0);
 			}

@@ -560,6 +560,7 @@ public:
 	[[nodiscard]] rpl::producer<bool> caretAccentValue() const { return _caretAccent.value(); }
 	[[nodiscard]] rpl::producer<unsigned int> caretCustomColorValue() const { return _caretCustomColor.value(); }
 	[[nodiscard]] rpl::producer<int> scrollSpeedValue() const { return _scrollSpeed.value(); }
+	[[nodiscard]] rpl::producer<int> wheelScrollStepValue() const { return _wheelScrollStep.value(); }
 	[[nodiscard]] rpl::producer<bool> selectScrollX2Value() const { return _selectScrollX2.value(); }
 	[[nodiscard]] rpl::producer<bool> senderMiniAvatarsValue() const { return _senderMiniAvatars.value(); }
 	[[nodiscard]] rpl::producer<bool> onlineIndicatorValue() const { return _onlineIndicator.value(); }
