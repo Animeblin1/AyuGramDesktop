@@ -30,12 +30,13 @@ assert.match(builder, /std::move\(args\.value\)|std::move\(value\)/);
 assert.match(builder, /value \? std::move\(value\) : rpl::single/);
 
 const appearance = read('Telegram/SourceFiles/ayu/ui/settings/settings_appearance.cpp');
-assert.match(appearance, /settings->smoothCaretValue\(\)/);
-assert.match(appearance, /settings->caretSpeedValue\(\)/);
-assert.match(appearance, /wheelScrollStepValue\(/);
+const additional = read('Telegram/SourceFiles/ayu/ui/settings/settings_additional.cpp');
+assert.match(additional, /settings->smoothCaretValue\(\)/);
+assert.match(additional, /settings->caretSpeedValue\(\)/);
+assert.match(additional, /wheelScrollStepValue\(/);
 const sliderHeader = read('Telegram/SourceFiles/ayu/ui/settings/ayu_builder.h');
 const fields = [...sliderHeader.match(/struct SliderArgs \{([\s\S]*?)\n\s*\};/)[1].matchAll(/^\s*[^;\r\n]+?\s+(\w+)(?:\s*=.*)?;/gm)].map(m => m[1]);
-for (const source of [appearance, read('Telegram/SourceFiles/ayu/ui/settings/settings_chats.cpp')]) {
+for (const source of [appearance, additional, read('Telegram/SourceFiles/ayu/ui/settings/settings_chats.cpp')]) {
   for (const block of source.matchAll(/ayu\.addSlider\(\{([\s\S]*?)\n\t\}\);/g)) {
     const names = [...block[1].matchAll(/^\t\t\.(\w+)\s*=/gm)].map(m => m[1]);
     const indices = names.map(name => { assert.ok(fields.includes(name), `Unknown slider field ${name}`); return fields.indexOf(name); });

@@ -11,6 +11,7 @@
 #include "ayu/ayu_settings.h"
 #include "ayu/ui/ayu_logo.h"
 #include "ayu/ui/settings/settings_appearance.h"
+#include "ayu/ui/settings/settings_additional.h"
 #include "ayu/ui/settings/settings_ayu.h"
 #include "ayu/ui/settings/settings_chats.h"
 #include "ayu/ui/settings/settings_filters.h"
@@ -92,9 +93,6 @@ void BuildVersionInfo(SectionBuilder &builder) {
 
 void BuildCategories(SectionBuilder &builder) {
 	builder.addSkip();
-	builder.addSkip();
-	builder.addSkip();
-	builder.addSkip();
 	builder.addDivider();
 	builder.addSkip();
 
@@ -124,6 +122,11 @@ void BuildCategories(SectionBuilder &builder) {
 		.title = tr::ayu_CategoryChats(),
 		.targetSection = AyuChats::Id(),
 		.icon = { &st::menuIconChatBubble },
+	});
+	builder.addSectionButton({
+		.title = tr::ayu_CategoryAdditional(),
+		.targetSection = AyuAdditional::Id(),
+		.icon = { &st::menuIconSettings },
 	});
 	builder.addSectionButton({
 		.title = tr::ayu_CategoryOther(),
