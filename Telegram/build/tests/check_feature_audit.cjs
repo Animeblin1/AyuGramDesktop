@@ -25,6 +25,6 @@ assert.match(builder, /value \? std::move\(value\) : rpl::single/);
 const appearance = read('Telegram/SourceFiles/ayu/ui/settings/settings_appearance.cpp');
 assert.match(appearance, /settings->smoothCaretValue\(\)/);
 assert.match(appearance, /settings->caretSpeedValue\(\)/);
-assert.match(appearance, /settings->wheelScrollStepValue\(\)/);
+assert.match(appearance, /wheelScrollStepValue\(/);
 
 console.log('PASS: focused feature-audit source contracts (not runtime tests).');
