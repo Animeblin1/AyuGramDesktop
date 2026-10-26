@@ -87,6 +87,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/top_background_gradient.h"
+#include "ayu/ayu_settings.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/glare_tooltip.h"
@@ -664,6 +665,10 @@ TopBar::TopBar(
 		if (Ui::AvatarGradientColorsFor(_peer) != _ayuGradientColors) {
 			updateCollectibleStatus();
 		}
+	}, lifetime());
+	AyuSettings::getInstance().profileGradientFromAvatarChanges(
+	) | rpl::on_next([=] {
+		updateCollectibleStatus();
 	}, lifetime());
 
 	if (_forumButton) {
