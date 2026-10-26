@@ -271,26 +271,26 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_CaretSpeed(),
 		.steps = 101,
 		.current = settings->caretSpeed(),
-		.value = settings->caretSpeedValue(),
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setCaretSpeed(val);
 		},
 		.formatLabel = [](int val) {
 			return QString::number(val) + u" %"_q;
 		},
+		.value = settings->caretSpeedValue(),
 	});
 	ayu.addSlider({
 		.id = u"ayu/blinkMsSlider"_q,
 		.title = tr::ayu_BlinkRate(),
 		.steps = 801,
 		.current = settings->blinkMs() - 200,
-		.value = settings->blinkMsValue() | rpl::map([](int value) { return value - 200; }),
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setBlinkMs(val + 200);
 		},
 		.formatLabel = [](int val) {
 			return QString::number(val + 200) + u" ms"_q;
 		},
+		.value = settings->blinkMsValue() | rpl::map([](int value) { return value - 200; }),
 	});
 	ayu.addSettingToggle({
 		.id = u"ayu/caretAccent"_q,
@@ -349,13 +349,13 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_ScrollSmoothness(),
 		.steps = 101,
 		.current = settings->scrollSpeed(),
-		.value = settings->scrollSpeedValue(),
 		.onChanged = [=](int val) {
 			AyuSettings::getInstance().setScrollSpeed(val);
 		},
 		.formatLabel = [](int val) {
 			return QString::number(val) + u" %"_q;
 		},
+		.value = settings->scrollSpeedValue(),
 	});
 
 		// Ayu: wheel notch step as a percentage, slider with a live label
@@ -386,14 +386,20 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 					settings->wheelScrollStep(),
 					kMin,
 					kMax));
-
 			auto field = object_ptr<Ui::InputField>(
 				container,
 				st::defaultInputField,
 				tr::ayu_WheelScrollStep(),
 				QString::number(*current));
 			const auto fieldRaw = field.data();
-			fieldRaw->setMaxLength(4);
+			settings->wheelScrollStepValue(
+			) | rpl::on_next([=](int value) {
+				*current = std::clamp(value, kMin, kMax);
+				label->setText(QString::number(*current) + u" %"_q);
+				fieldRaw->setText(QString::number(*current));
+				slider->setValue(
+					(*current - kMin) / float64(kMax - kMin));
+			}, container->lifetime());
 
 			const auto applyPercent = [=](int percent) {
 				const auto clamped = std::clamp(percent, kMin, kMax);
