@@ -1427,6 +1427,8 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._hideOutgoingProxyLinks = j.value("hideOutgoingProxyLinks", defaults._hideOutgoingProxyLinks.current());
 	s._crashReporting = j.value("crashReporting", defaults._crashReporting.current());
 	s._avatarCorners = j.value("avatarCorners", defaults._avatarCorners.current());
+	s._smoothCaret = j.value("smoothCaret", defaults._smoothCaret.current());
+	s._smoothScroll = j.value("smoothScroll", defaults._smoothScroll.current());
 	s._webAppsWindowed = j.value("webAppsWindowed", defaults._webAppsWindowed.current());
 	s._caretSpeed = j.value("caretSpeed", defaults._caretSpeed.current());
 	s._caretBlink = j.value("caretBlink", defaults._caretBlink.current());

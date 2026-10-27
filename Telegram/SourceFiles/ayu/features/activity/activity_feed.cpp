@@ -54,6 +54,14 @@ Feed &SessionFeed(not_null<UserData*> user) {
 	auto &feed = feeds[session];
 	if (!feed) {
 		feed = session->lifetime().make_state<Feed>();
+		AyuSettings::getInstance().liveUserActivityValue(
+		) | rpl::on_next([=](bool enabled) {
+			if (!enabled) {
+				feed->entries.clear();
+				feed->timer.cancel();
+			}
+			ChangedStream().fire({});
+		}, session->lifetime());
 		session->lifetime().add([=] { feeds.erase(session); });
 	}
 	return *feed;
