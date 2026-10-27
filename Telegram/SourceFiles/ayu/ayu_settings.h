@@ -565,6 +565,7 @@ public:
 	[[nodiscard]] rpl::producer<bool> senderMiniAvatarsValue() const { return _senderMiniAvatars.value(); }
 	[[nodiscard]] rpl::producer<bool> onlineIndicatorValue() const { return _onlineIndicator.value(); }
 	[[nodiscard]] rpl::producer<bool> inlineCalculatorValue() const { return _inlineCalculator.value(); }
+	[[nodiscard]] rpl::producer<bool> liveUserActivityValue() const { return _liveUserActivity.value(); }
 	[[nodiscard]] rpl::producer<bool> materialSwitchesChanges() const { return _materialSwitches.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothCaretChanges() const { return _smoothCaret.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothScrollChanges() const { return _smoothScroll.changes(); }

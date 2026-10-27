@@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat.h"
 #include "styles/style_menu_icons.h"
 
+#include <cmath>
 #include <QtGui/QClipboard>
 #include <QtWidgets/QApplication>
 #include <QtCore/QCoreApplication>
@@ -552,9 +553,25 @@ HistoryInner::HistoryInner(
 		}
 	}, lifetime());
 
+	AyuSettings::getInstance().onlineIndicatorValue(
+	) | rpl::on_next([=](bool) { update(); }, lifetime());
+
 	_selectScroll.scrolls(
 	) | rpl::on_next([=](int d) {
-		_scroll->scrollToY(_scroll->scrollTop() + d);
+		const auto boost = AyuSettings::getInstance().selectScrollX2()
+			? 2.0
+			: 1.5;
+		if (_selectBoostSpeed == 0.
+			|| base::OppositeSigns(_selectBoostSpeed, double(d))) {
+			_selectBoostSpeed = d;
+		}
+		const auto target = std::copysign(std::clamp(
+			(std::abs(double(d)) + 6.) * boost,
+			12.,
+			90.), double(d));
+		_selectBoostSpeed += (target - _selectBoostSpeed) * 0.15;
+		_scroll->scrollToY(
+			_scroll->scrollTop() + int(std::lround(_selectBoostSpeed)));
 	}, _scroll->lifetime());
 
 	_controller->window().widget()->globalForceClicks() |
@@ -2434,6 +2451,7 @@ void HistoryInner::mouseActionCancel() {
 	_dragSelecting = false;
 	_wasSelectedText = false;
 	_selectScroll.cancel();
+	_selectBoostSpeed = 0.;
 }
 
 std::unique_ptr<QMimeData> HistoryInner::prepareDrag() {
@@ -2478,6 +2496,7 @@ std::unique_ptr<QMimeData> HistoryInner::prepareDrag() {
 	if (auto mimeData = TextUtilities::MimeDataFromText(selectedText)) {
 		updateDragSelection(nullptr, nullptr, false);
 		_selectScroll.cancel();
+		_selectBoostSpeed = 0.;
 
 		if (!urls.isEmpty()) {
 			mimeData->setUrls(urls);
@@ -2763,6 +2782,7 @@ void HistoryInner::mouseActionFinish(
 	_mouseSelectType = TextSelectType::Letters;
 	_mouseTextAnchor = TextState();
 	_selectScroll.cancel();
+	_selectBoostSpeed = 0.;
 	_widget->updateTopBarSelection();
 
 	if (QGuiApplication::clipboard()->supportsSelection()
@@ -5878,6 +5898,10 @@ void HistoryInner::mouseActionUpdate() {
 	}
 
 	if (_mouseAction == MouseAction::Selecting) {
+		if (mousePos.y() >= _scroll->scrollTop()
+			&& mousePos.y() < _scroll->scrollTop() + _scroll->height()) {
+			_selectBoostSpeed = 0.;
+		}
 		_selectScroll.checkDeltaScroll(
 			mousePos,
 			_scroll->scrollTop(),
@@ -5885,6 +5909,7 @@ void HistoryInner::mouseActionUpdate() {
 	} else {
 		updateDragSelection(nullptr, nullptr, false);
 		_selectScroll.cancel();
+		_selectBoostSpeed = 0.;
 	}
 
 	if (_mouseAction == MouseAction::None && (lnkChanged || cur != _cursor)) {

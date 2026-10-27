@@ -769,6 +769,9 @@ ListWidget::ListWidget(
 		}
 	}, lifetime());
 
+	AyuSettings::getInstance().onlineIndicatorValue(
+	) | rpl::on_next([=](bool) { update(); }, lifetime());
+
 	_selectScroll.scrolls(
 	) | rpl::on_next([=](int d) {
 		// Ayu: accelerated selection edge-scroll. The stock manager tops

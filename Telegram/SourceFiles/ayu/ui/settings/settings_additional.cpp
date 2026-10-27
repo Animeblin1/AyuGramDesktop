@@ -168,6 +168,7 @@ void BuildScrolling(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_SmoothScroll(),
 		.getter = &AyuSettings::smoothScroll,
 		.setter = &AyuSettings::setSmoothScroll,
+		.value = settings->smoothScrollValue(),
 	});
 
 	ayu.addSlider({
@@ -185,12 +186,14 @@ void BuildScrolling(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	});
 
 	BuildWheelStep(builder);
+	builder.addDividerText(tr::ayu_AdditionalScrollHint());
 
 	ayu.addSettingToggle({
 		.id = u"ayu/selectScrollX2"_q,
 		.title = tr::ayu_SelectionScrollX2(),
 		.getter = &AyuSettings::selectScrollX2,
 		.setter = &AyuSettings::setSelectScrollX2,
+		.value = settings->selectScrollX2Value(),
 	});
 
 	ayu.addSectionDivider();
@@ -202,6 +205,7 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	builder.addSubsectionTitle(tr::ayu_AdditionalCaretHeader());
 
 	BuildCaretPreview(builder);
+	builder.addDividerText(tr::ayu_AdditionalCaretHint());
 
 	ayu.addSettingToggle({
 		.id = u"ayu/smoothCaret"_q,
@@ -259,7 +263,7 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 			return color
 				? (u"#"_q + QString::number(
 					color & 0xFFFFFFu,
-					16).right(6).toUpper())
+					16).rightJustified(6, QChar('0')).toUpper())
 				: tr::ayu_CaretColorAuto(tr::now);
 		}),
 		.onClick = [=] {
@@ -272,9 +276,16 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 				tr::ayu_CaretColor(tr::now));
 			if (result.isValid()) {
 				AyuSettings::getInstance().setCaretCustomColor(
-					unsigned(result.rgb() & 0xFFFFFFu));
+					unsigned(result.rgb()));
 			}
 		},
+	});
+
+	builder.addButton({
+		.id = u"ayu/caretColorAuto"_q,
+		.title = tr::ayu_CaretColorUseAuto(),
+		.st = &st::settingsButtonNoIcon,
+		.onClick = [=] { settings->setCaretCustomColor(0); },
 	});
 
 	builder.addButton({
@@ -296,6 +307,7 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 }
 
 void BuildProfileAndWindows(SectionBuilder &builder, AyuSectionBuilder &ayu) {
+	const auto settings = &AyuSettings::getInstance();
 	builder.addSubsectionTitle(tr::ayu_AdditionalProfileWindowsHeader());
 
 	ayu.addSettingToggle({
@@ -303,6 +315,7 @@ void BuildProfileAndWindows(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_ProfileGradientFromAvatar(),
 		.getter = &AyuSettings::profileGradientFromAvatar,
 		.setter = &AyuSettings::setProfileGradientFromAvatar,
+		.value = settings->profileGradientFromAvatarValue(),
 	});
 
 	ayu.addSettingToggle({
@@ -310,12 +323,14 @@ void BuildProfileAndWindows(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_WebAppsWindowed(),
 		.getter = &AyuSettings::webAppsWindowed,
 		.setter = &AyuSettings::setWebAppsWindowed,
+		.value = settings->webAppsWindowedValue(),
 	});
 
 	ayu.addSectionDivider();
 }
 
 void BuildChatActivityAndTools(SectionBuilder &builder, AyuSectionBuilder &ayu) {
+	const auto settings = &AyuSettings::getInstance();
 	builder.addSubsectionTitle(tr::ayu_AdditionalChatToolsHeader());
 
 	ayu.addSettingToggle({
@@ -323,6 +338,7 @@ void BuildChatActivityAndTools(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.title = tr::ayu_MiniAvatars(),
 		.getter = &AyuSettings::senderMiniAvatars,
 		.setter = &AyuSettings::setSenderMiniAvatars,
+		.value = settings->senderMiniAvatarsValue(),
 	});
 
 	ayu.addSettingToggle({
@@ -330,6 +346,7 @@ void BuildChatActivityAndTools(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.title = tr::ayu_OnlineIndicator(),
 		.getter = &AyuSettings::onlineIndicator,
 		.setter = &AyuSettings::setOnlineIndicator,
+		.value = settings->onlineIndicatorValue(),
 	});
 
 	ayu.addSettingToggle({
@@ -337,13 +354,16 @@ void BuildChatActivityAndTools(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.title = tr::ayu_LiveUserActivity(),
 		.getter = &AyuSettings::liveUserActivity,
 		.setter = &AyuSettings::setLiveUserActivity,
+		.value = settings->liveUserActivityValue(),
 	});
+	builder.addDividerText(tr::ayu_AdditionalActivityHint());
 
 	ayu.addSettingToggle({
 		.id = u"ayu/inlineCalculator"_q,
 		.title = tr::ayu_InlineCalculator(),
 		.getter = &AyuSettings::inlineCalculator,
 		.setter = &AyuSettings::setInlineCalculator,
+		.value = settings->inlineCalculatorValue(),
 	});
 }
 

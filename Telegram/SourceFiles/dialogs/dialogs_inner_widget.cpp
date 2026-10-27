@@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <unordered_map>
 
 // AyuGram includes
+#include "ayu/ayu_settings.h"
 #include "ayu/ui/ayu_userpic.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "styles/style_ayu_icons.h"
@@ -320,6 +321,16 @@ InnerWidget::InnerWidget(
 	setAccessibleName(tr::lng_recent_chats(tr::now));
 
 	_communityViewable.setRepaint([=] { update(); });
+
+	const auto &ayuSettings = AyuSettings::getInstance();
+	rpl::merge(
+		ayuSettings.onlineIndicatorValue(),
+		ayuSettings.senderMiniAvatarsValue()
+	) | rpl::on_next([=](bool) {
+		_rowsScrollCache.clear();
+		_cachedRows.clear();
+		update();
+	}, lifetime());
 
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
