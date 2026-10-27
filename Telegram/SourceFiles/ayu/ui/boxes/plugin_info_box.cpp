@@ -43,7 +43,10 @@
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
+#include "window/window_controller.h"
 #include "window/window_session_controller.h"
+
+#include "styles/style_menu_icons.h"
 
 #include <QDir>
 #include <QFile>
@@ -139,6 +142,7 @@ void PreviewArchiveEntry(
 
 void ShowArchiveContents(
 		not_null<Window::SessionController*> controller,
+		const QString &pluginPath,
 		const QByteArray &archive) {
 	const auto entries = std::make_shared<std::vector<QString>>();
 	const auto reader = std::make_shared<zlib::FileToRead>(archive);
@@ -197,6 +201,7 @@ void ShowPluginMenu(
 			crl::guard(controller, [=] {
 				ShowArchiveContents(
 					controller,
+					pluginPath,
 					ReadArchiveBounded(pluginPath, 1024 * 1024));
 			}),
 			&st::menuIconArchive);

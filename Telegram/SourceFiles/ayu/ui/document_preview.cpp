@@ -8,6 +8,7 @@
 #include "ui/widgets/labels.h"
 #include "webview/webview_embed.h"
 #include "webview/webview_data_stream_memory.h"
+#include "styles/style_box.h"
 #include "styles/style_iv.h"
 #include "styles/style_layers.h"
 #include "styles/style_settings.h"
@@ -27,11 +28,15 @@ constexpr auto kMaxBytes = qint64(32) * 1024 * 1024;
 // window to that single document (or, for remote links, to that host).
 class WebFilePreview final : public Ui::RpWindow {
 public:
-	WebFilePreview(QByteArray bytes, const QString &mime, const QString &name)
+	WebFilePreview(
+		QByteArray bytes,
+		std::string mime,
+		const QString &name,
+		const QString &prefix)
 	: _bytes(std::move(bytes))
-	, _mime(std::move(mime).toStdString())
+	, _mime(std::move(mime))
 	, _isLocal(true) {
-		setup(name, u"doc/"_q);
+		setup(name, prefix);
 		navigate();
 	}
 
