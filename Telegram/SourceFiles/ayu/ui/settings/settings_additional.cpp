@@ -7,7 +7,6 @@
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
 #include "ui/widgets/fields/input_field.h"
-#include "ui/widgets/fields/number_input.h"
 #include "ui/widgets/continuous_sliders.h"
 #include "ui/widgets/labels.h"
 #include "ui/wrap/vertical_layout.h"
@@ -80,82 +79,21 @@ void BuildCaretPreview(SectionBuilder &builder) {
 	});
 }
 
-void BuildWheelStep(SectionBuilder &builder) {
+void BuildWheelStep(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	const auto settings = &AyuSettings::getInstance();
-	builder.add([=](const WidgetContext &ctx) -> SectionBuilder::WidgetToAdd {
-		const auto container = ctx.container;
-		auto wrap = object_ptr<Ui::VerticalLayout>(container);
-		const auto row = wrap->add(object_ptr<Ui::RpWidget>(wrap));
-		const auto pad = st::settingsButtonNoIcon.padding;
-		row->setFixedHeight(
-			pad.top() + st::defaultInputField.heightMin + pad.bottom());
-		const auto title = Ui::CreateChild<Ui::FlatLabel>(
-			row,
-			tr::ayu_WheelScrollStep(),
-			st::defaultFlatLabel);
-		constexpr auto kMin = 50;
-		constexpr auto kMax = 400;
-		constexpr auto kStep = 10;
-		constexpr auto kCount = ((kMax - kMin) / kStep) + 1;
-		const auto field = Ui::CreateChild<Ui::NumberInput>(
-			row,
-			st::defaultInputField,
-			rpl::single(QString()),
-			QString::number(settings->wheelScrollStep()),
-			kMax);
-		row->widthValue() | rpl::on_next([=](int width) {
-			const auto fieldWidth = st::defaultInputField.style.font->width(u"888 %"_q)
-				+ st::defaultInputField.textMargins.left()
-				+ st::defaultInputField.textMargins.right();
-			field->resize(fieldWidth, st::defaultInputField.heightMin);
-			field->moveToRight(pad.right(), pad.top());
-			title->resizeToWidth(std::max(
-				0,
-				width - pad.left() - pad.right() - fieldWidth - pad.left()));
-			title->moveToLeft(pad.left(), (row->height() - title->height()) / 2);
-		}, row->lifetime());
-		auto sliderWithLabel = MakeSliderWithLabel(
-			container,
-			st::autoDownloadLimitSlider,
-			st::settingsScaleLabel,
-			0,
-			st::settingsScaleLabel.style.font->width(u"888 %"_q),
-			true);
-		const auto slider = sliderWithLabel.slider;
-		const auto label = sliderWithLabel.label;
-		wrap->add(
-			std::move(sliderWithLabel.widget),
-			st::recentStickersLimitPadding);
-		slider->setPseudoDiscrete(
-			kCount,
-			[](int index) { return kMin + index * kStep; },
-			settings->wheelScrollStep(),
-			[](int value) { AyuSettings::getInstance().setWheelScrollStep(value); },
-			[](int value) { AyuSettings::getInstance().setWheelScrollStep(value); });
-		settings->wheelScrollStepValue() | rpl::on_next([=](int value) {
-			label->setText(QString::number(value) + u" %"_q);
-			const auto text = QString::number(value);
-			if (field->getLastText() != text) {
-				field->setText(text);
-			}
-			slider->setValue((value - kMin) / float64(kMax - kMin));
-		}, wrap->lifetime());
-		QObject::connect(field, &Ui::NumberInput::changed, row, [=] {
-			auto ok = false;
-			const auto value = field->getLastText().toInt(&ok);
-			if (ok && value >= kMin && value <= kMax) {
-				AyuSettings::getInstance().setWheelScrollStep(value);
-			}
-		});
-		QObject::connect(field, &Ui::NumberInput::blurred, row, [=] {
-			field->setText(QString::number(settings->wheelScrollStep()));
-		});
-		return { .widget = std::move(wrap) };
-	}, [] {
-		return SearchEntry{
-			.id = u"ayu/wheelScrollStep"_q,
-			.title = tr::ayu_WheelScrollStep(tr::now),
-		};
+	ayu.addSlider({
+		.id = u"ayu/wheelScrollStep"_q,
+		.title = tr::ayu_WheelScrollStep(),
+		.steps = ((400 - 50) / 10) + 1,
+		.current = settings->wheelScrollStep() - 50,
+		.onChanged = [=](int val) {
+			AyuSettings::getInstance().setWheelScrollStep(val + 50);
+		},
+		.formatLabel = [](int val) {
+			return QString::number(val + 50) + u" %"_q;
+		},
+		.value = settings->wheelScrollStepValue()
+			| rpl::map([](int value) { return value - 50; }),
 	});
 }
 
@@ -185,8 +123,7 @@ void BuildScrolling(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.value = settings->scrollSpeedValue(),
 	});
 
-	BuildWheelStep(builder);
-	builder.addDividerText(tr::ayu_AdditionalScrollHint());
+	BuildWheelStep(builder, ayu);
 
 	ayu.addSettingToggle({
 		.id = u"ayu/selectScrollX2"_q,
@@ -205,7 +142,6 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	builder.addSubsectionTitle(tr::ayu_AdditionalCaretHeader());
 
 	BuildCaretPreview(builder);
-	builder.addDividerText(tr::ayu_AdditionalCaretHint());
 
 	ayu.addSettingToggle({
 		.id = u"ayu/smoothCaret"_q,
@@ -356,7 +292,6 @@ void BuildChatActivityAndTools(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.setter = &AyuSettings::setLiveUserActivity,
 		.value = settings->liveUserActivityValue(),
 	});
-	builder.addDividerText(tr::ayu_AdditionalActivityHint());
 
 	ayu.addSettingToggle({
 		.id = u"ayu/inlineCalculator"_q,
