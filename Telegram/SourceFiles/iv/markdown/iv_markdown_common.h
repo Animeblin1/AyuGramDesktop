@@ -286,6 +286,12 @@ struct ParseOptions {
 	const QString &fileName,
 	const QString &mimeType = QString());
 
+[[nodiscard]] bool IsTextLikePreviewFile(const QString &fileName);
+
+[[nodiscard]] QString ConvertTextLikePreviewSource(
+	const QString &fileName,
+	const QString &source);
+
 struct Event {
 	enum class Type {
 		Close,

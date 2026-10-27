@@ -139,7 +139,8 @@ OpenHandoff DescribeOpenHandoff(
 		&& QFileInfo::exists(result.path);
 	const auto pathInfo = QFileInfo(result.path);
 	result.markdownCandidate = Iv::Markdown::IsReadableLocalFile(pathInfo)
-		&& Iv::Markdown::LooksLikeMarkdownFile(pathInfo.fileName());
+		&& (Iv::Markdown::LooksLikeMarkdownFile(pathInfo.fileName())
+			|| Iv::Markdown::IsTextLikePreviewFile(pathInfo.fileName()));
 	result.nameType = Core::DetectNameType(result.path);
 	result.ipRevealing = (result.nameType != Core::NameType::Executable)
 		&& Core::IsIpRevealingPath(result.path);

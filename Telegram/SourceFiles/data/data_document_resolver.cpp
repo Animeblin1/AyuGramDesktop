@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ui/boxes/plugin_info_box.h"
+#include "ayu/ui/document_preview.h"
 #include <QtCore/QFile>
 
 
@@ -320,6 +321,9 @@ void ResolveDocument(
 		}
 		const auto path = document->filepath(true);
 		if (!path.isEmpty()) {
+			if (Ayu::TryShowPdfPreview(path, item ? item->history()->peer.get() : nullptr)) {
+				return;
+			}
 			auto context = QVariant();
 			if (item) {
 				auto clickHandlerContext = ClickHandlerContext();

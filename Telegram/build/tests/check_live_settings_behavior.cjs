@@ -24,5 +24,6 @@ for (const key of ['smoothCaret', 'smoothScroll']) {
 const additional = read('Telegram/SourceFiles/ayu/ui/settings/settings_additional.cpp');
 assert.match(additional, /unsigned\(result\.rgb\(\)\)/);
 assert.match(additional, /rightJustified\(6, QChar\('0'\)\)/);
-assert.match(additional, /ayu_CaretColorUseAuto/);
+assert.match(additional, /ayu_CaretColorAuto\(tr::now\)/);
+assert.doesNotMatch(additional, /ayu_CaretColorUseAuto/);
 console.log('PASS: live settings source contracts (not runtime GUI tests).');
