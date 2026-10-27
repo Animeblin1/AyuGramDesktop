@@ -9753,6 +9753,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_PluginNoDescription" = "No description provided.";
 "ayu_PluginNoAuthor" = "Unknown Author";
 "ayu_PluginsNotAvailable" = "Plugins are not supported by AyuGram Desktop yet.";
+"ayu_PluginViewCode" = "Открыть код";
+"ayu_PluginArchiveContents" = "Содержимое архива";
+"ayu_PluginArchiveEmpty" = "Архив пуст или повреждён.";
+"ayu_PluginArchiveBinary" = "Бинарный файл — предпросмотр недоступен.";
+"ayu_PluginCodeFail" = "Не удалось открыть код плагина.";
+"ayu_HtmlPreviewWebview" = "HTML открывать в веб-виде (иначе как код)";
+"ayu_LinksOpenInWebview" = "Ссылки открывать в веб-виде";
 "ayu_SessionTerminated" = "Session **{item}** was terminated. You may still browse cached messages.";
 "ayu_InvalidConnectionLayerNote" = "You should re-login due to an error during the update.";
 "ayu_LocalPremiumNotice" = "You're using **local** Telegram Premium.\nIt **won't** give you any benefits.\n**Enjoy the star near your nickname!**";

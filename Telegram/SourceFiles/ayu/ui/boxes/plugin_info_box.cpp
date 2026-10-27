@@ -8,6 +8,10 @@
 
 #include "apiwrap.h"
 #include "ayu/ayu_url_handlers.h"
+#include "base/algorithm.h"
+#include "base/zlib_help.h"
+#include "boxes/abstract_box.h"
+#include "core/application.h"
 #include "core/file_utilities.h"
 #include "core/ui_integration.h"
 #include "data/data_document.h"
@@ -15,10 +19,15 @@
 #include "data/data_file_origin.h"
 #include "data/data_session.h"
 #include "data/stickers/data_stickers_set.h"
+#include "iv/iv_instance.h"
 #include "lang/lang_keys.h"
 #include "chat_helpers/stickers_lottie.h"
 #include "history/view/media/history_view_sticker_player.h"
 #include "main/main_session.h"
+#include "ui/boxes/confirm_box.h"
+#include "ui/toast/toast.h"
+#include "ui/widgets/popup_menu.h"
+#include "ui/basic_click_handlers.h"
 #include "styles/style_ayu_styles.h"
 #include "styles/style_boxes.h"
 #include "styles/style_chat.h"
@@ -36,13 +45,166 @@
 #include "ui/widgets/scroll_area.h"
 #include "window/window_session_controller.h"
 
+#include <QDir>
+#include <QFile>
 #include <QPainterPath>
 #include <QRegularExpression>
+#include <QStandardPaths>
 
+#include <algorithm>
+#include <array>
 
 namespace Ui {
 namespace {
 
+// Opens any text in the IV viewer by writing a temp .md file with the
+// content wrapped in a fenced code block.
+void PreviewTextInIv(
+		not_null<Window::SessionController*> controller,
+		const QString &name,
+		const QString &text) {
+	const auto fence = text.contains(u"```"_q) ? u"~~~~"_q : u"```"_q;
+	const auto ext = name.lastIndexOf(QChar('.'));
+	const auto lang = (ext >= 0 && ext + 1 < name.size())
+		? name.mid(ext + 1).toLower()
+		: QString();
+	const auto body = fence + lang + QChar('\n') + text + QChar('\n') + fence;
+
+	const auto dir = QDir(
+		QStandardPaths::writableLocation(QStandardPaths::TempLocation)
+		+ u"/ayu_preview"_q);
+	if (!dir.exists()) {
+		QDir().mkpath(dir.absolutePath());
+	}
+	static auto counter = 0;
+	const auto path = dir.filePath(
+		u"preview_%1_%2.md"_q.arg(++counter).arg(name.section('.', 0, 0)));
+	auto file = QFile(path);
+	if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)
+		|| file.write(body.toUtf8()) != body.toUtf8().size()) {
+		Ui::Toast::Show(tr::ayu_PluginCodeFail(tr::now));
+		return;
+	}
+	Core::App().iv().showMarkdown(path, QVariant());
+}
+
+[[nodiscard]] QString ReadFileBounded(
+		const QString &path,
+		qint64 limit) {
+	auto file = QFile(path);
+	return file.open(QIODevice::ReadOnly)
+		? QString::fromUtf8(file.read(limit))
+		: QString();
+}
+
+[[nodiscard]] QByteArray ReadArchiveBounded(const QString &path, qint64 limit) {
+	auto file = QFile(path);
+	return file.open(QIODevice::ReadOnly) ? file.read(limit) : QByteArray();
+}
+
+[[nodiscard]] bool IsTextLikeArchiveEntry(const QString &name) {
+	const auto ext = name.mid(name.lastIndexOf(QChar('.')) + 1).toLower();
+	const auto list = std::array{
+		u"yml"_q, u"yaml"_q, u"json"_q, u"xml"_q, u"py"_q, u"js"_q,
+		u"html"_q, u"htm"_q, u"css"_q, u"txt"_q, u"md"_q, u"svg"_q,
+		u"lat"_q, u"toml"_q, u"ini"_q, u"cfg"_q,
+	};
+	return std::find(list.begin(), list.end(), ext) != list.end();
+}
+
+void PreviewArchiveEntry(
+		not_null<Window::SessionController*> controller,
+		const QString &pluginPath,
+		const QString &entryName) {
+	const auto reader = std::make_shared<zlib::FileToRead>(
+		ReadArchiveBounded(pluginPath, 1024 * 1024));
+	if (reader->locateFile(
+			entryName.toUtf8().constData(),
+			zlib::kCaseInsensitive) != UNZ_OK) {
+		return;
+	}
+	const auto bytes = reader->readCurrentFileContent(1024 * 1024);
+	if (bytes.isEmpty()) {
+		return;
+	}
+	if (IsTextLikeArchiveEntry(entryName)) {
+		PreviewTextInIv(
+			controller,
+			entryName,
+			QString::fromUtf8(bytes));
+	} else {
+		Ui::Toast::Show(tr::ayu_PluginArchiveBinary(tr::now));
+	}
+}
+
+void ShowArchiveContents(
+		not_null<Window::SessionController*> controller,
+		const QByteArray &archive) {
+	const auto entries = std::make_shared<std::vector<QString>>();
+	const auto reader = std::make_shared<zlib::FileToRead>(archive);
+	if (reader->goToFirstFile() == UNZ_OK) {
+		do {
+			const auto fileName = reader->getCurrentFileName();
+			if (!fileName.isEmpty() && !fileName.endsWith(QChar('/'))) {
+				entries->push_back(fileName);
+			}
+		} while (reader->goToNextFile() == UNZ_OK);
+	}
+	if (entries->empty()) {
+		Ui::Toast::Show(tr::ayu_PluginArchiveEmpty(tr::now));
+		return;
+	}
+	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+		box->setTitle(tr::ayu_PluginArchiveContents());
+		for (const auto &fileName : *entries) {
+			const auto entryName = fileName;
+			const auto row = box->addRow(object_ptr<Ui::FlatLabel>(
+				box,
+				rpl::single(entryName
+					+ (IsTextLikeArchiveEntry(entryName)
+						? QString()
+						: u" (бинарный файл)"_q)),
+				st::boxLabel));
+			if (IsTextLikeArchiveEntry(entryName)) {
+				row->setLink(1, std::make_shared<LambdaClickHandler>([=] {
+					PreviewArchiveEntry(controller, pluginPath, entryName);
+				}));
+			}
+		}
+	}));
+}
+
+void ShowPluginMenu(
+		not_null<Window::SessionController*> controller,
+		const QString &pluginPath,
+		const QString &name) {
+	const auto suffix = QFileInfo(pluginPath).suffix().toLower();
+	const auto menu = Ui::CreateChild<Ui::PopupMenu>(
+		controller->window().widget(),
+		st::popupMenuWithIcons);
+	menu->addAction(
+		tr::ayu_PluginViewCode(),
+		crl::guard(controller, [=] {
+			PreviewTextInIv(
+				controller,
+				name + u".plugin"_q,
+				ReadFileBounded(pluginPath, 1024 * 1024));
+		}),
+		&st::menuIconBotCommands);
+	if (suffix == u"elyx"_q || suffix == u"eaf"_q) {
+		menu->addAction(
+			tr::ayu_PluginArchiveContents(),
+			crl::guard(controller, [=] {
+				ShowArchiveContents(
+					controller,
+					ReadArchiveBounded(pluginPath, 1024 * 1024));
+			}),
+			&st::menuIconArchive);
+	}
+	menu->popup(QCursor::pos());
+}
+
+} // namespace
 QString ExtractField(const QByteArray &data, const QString &key) {
 	// supports probably all kinds of weird python syntax + both " and '
 	// "description"
@@ -152,6 +314,11 @@ void FillPluginInfoBox(
 					  [=]
 					  {
 						  File::ShowInFolder(pluginPath);
+					  });
+	box->addTopButton(st::pluginMenuToggle,
+					  [=]
+					  {
+						  ShowPluginMenu(controller, pluginPath, metadata.name);
 					  });
 
 	Ui::AddSkip(box->verticalLayout());

@@ -330,6 +330,8 @@ public:
 	[[nodiscard]] bool onlineIndicator() const { return _onlineIndicator.current(); }
 	[[nodiscard]] bool inlineCalculator() const { return _inlineCalculator.current(); }
 	[[nodiscard]] bool liveUserActivity() const { return _liveUserActivity.current(); }
+	[[nodiscard]] bool htmlPreviewWebview() const { return _htmlPreviewWebview.current(); }
+	[[nodiscard]] bool linksOpenInWebview() const { return _linksOpenInWebview.current(); }
 	[[nodiscard]] bool removeMessageTail() const { return _removeMessageTail.current(); }
 	[[nodiscard]] bool disableNotificationsDelay() const { return _disableNotificationsDelay.current(); }
 	[[nodiscard]] bool localPremium() const { return _localPremium.current(); }
@@ -437,6 +439,8 @@ public:
 	void setOnlineIndicator(bool val);
 	void setInlineCalculator(bool val);
 	void setLiveUserActivity(bool val);
+	void setHtmlPreviewWebview(bool val);
+	void setLinksOpenInWebview(bool val);
 	void setRemoveMessageTail(bool val);
 	void setDisableNotificationsDelay(bool val);
 	void setLocalPremium(bool val);
@@ -566,6 +570,8 @@ public:
 	[[nodiscard]] rpl::producer<bool> onlineIndicatorValue() const { return _onlineIndicator.value(); }
 	[[nodiscard]] rpl::producer<bool> inlineCalculatorValue() const { return _inlineCalculator.value(); }
 	[[nodiscard]] rpl::producer<bool> liveUserActivityValue() const { return _liveUserActivity.value(); }
+	[[nodiscard]] rpl::producer<bool> htmlPreviewWebviewValue() const { return _htmlPreviewWebview.value(); }
+	[[nodiscard]] rpl::producer<bool> linksOpenInWebviewValue() const { return _linksOpenInWebview.value(); }
 	[[nodiscard]] rpl::producer<bool> materialSwitchesChanges() const { return _materialSwitches.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothCaretChanges() const { return _smoothCaret.changes(); }
 	[[nodiscard]] rpl::producer<bool> smoothScrollChanges() const { return _smoothScroll.changes(); }
@@ -757,6 +763,8 @@ private:
 	rpl::variable<bool> _onlineIndicator = false;
 	rpl::variable<bool> _inlineCalculator = true;
 	rpl::variable<bool> _liveUserActivity = true;
+	rpl::variable<bool> _htmlPreviewWebview = false;
+	rpl::variable<bool> _linksOpenInWebview = false;
 	rpl::variable<bool> _removeMessageTail = false;
 	rpl::variable<bool> _disableNotificationsDelay = false;
 	rpl::variable<bool> _localPremium = false;

@@ -775,6 +775,18 @@ void AyuSettings::setLiveUserActivity(bool val) {
 	save();
 }
 
+void AyuSettings::setHtmlPreviewWebview(bool val) {
+	if (_htmlPreviewWebview.current() == val) return;
+	_htmlPreviewWebview = val;
+	save();
+}
+
+void AyuSettings::setLinksOpenInWebview(bool val) {
+	if (_linksOpenInWebview.current() == val) return;
+	_linksOpenInWebview = val;
+	save();
+}
+
 void AyuSettings::setRemoveMessageTail(bool val) {
 	if (_removeMessageTail.current() == val) return;
 	_removeMessageTail = val;
@@ -1252,6 +1264,8 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"onlineIndicator", s._onlineIndicator.current()},
 		{"inlineCalculator", s._inlineCalculator.current()},
 		{"liveUserActivity", s._liveUserActivity.current()},
+		{"htmlPreviewWebview", s._htmlPreviewWebview.current()},
+		{"linksOpenInWebview", s._linksOpenInWebview.current()},
 		{"removeMessageTail", s._removeMessageTail.current()},
 		{"disableNotificationsDelay", s._disableNotificationsDelay.current()},
 		{"localPremium", s._localPremium.current()},
@@ -1443,6 +1457,8 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._onlineIndicator = j.value("onlineIndicator", defaults._onlineIndicator.current());
 	s._inlineCalculator = j.value("inlineCalculator", defaults._inlineCalculator.current());
 	s._liveUserActivity = j.value("liveUserActivity", defaults._liveUserActivity.current());
+	s._htmlPreviewWebview = j.value("htmlPreviewWebview", defaults._htmlPreviewWebview.current());
+	s._linksOpenInWebview = j.value("linksOpenInWebview", defaults._linksOpenInWebview.current());
 	s._caretSpeed = std::clamp(s._caretSpeed.current(), 0, 100);
 	s._blinkMs = std::clamp(s._blinkMs.current(), 200, 1000);
 	s._scrollSpeed = std::clamp(s._scrollSpeed.current(), 0, 100);

@@ -101,6 +101,11 @@ pluginShowInFolder: IconButton(defaultIconButton) {
 	rippleAreaSize: 40px;
 	ripple: defaultRippleAnimationBgOver;
 }
+
+pluginMenuToggle: IconButton(pluginShowInFolder) {
+	icon: menuIconManage;
+	iconOver: menuIconManage;
+}
 maxPluginDescriptionHeight: 400px;
 pluginVersionAuthorLabel: FlatLabel(boxLabel) {
     align: align(center);

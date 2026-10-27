@@ -457,6 +457,11 @@ bool UiIntegration::handleUrlClick(
 		return true;
 	}
 
+	if (AyuSettings::getInstance().linksOpenInWebview()
+		&& Ayu::TryOpenLinkInWebview(url)) {
+		return true;
+	}
+
 	if (AyuUrlHandlers::TryHandleSpotify(url)) {
 		return true;
 	}
