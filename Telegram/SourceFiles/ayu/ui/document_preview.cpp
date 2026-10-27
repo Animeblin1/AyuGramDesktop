@@ -8,7 +8,7 @@
 #include "ui/widgets/labels.h"
 #include "webview/webview_embed.h"
 #include "webview/webview_data_stream_memory.h"
-#include "styles/style_box.h"
+#include "styles/style_boxes.h"
 #include "styles/style_iv.h"
 #include "styles/style_layers.h"
 #include "styles/style_settings.h"

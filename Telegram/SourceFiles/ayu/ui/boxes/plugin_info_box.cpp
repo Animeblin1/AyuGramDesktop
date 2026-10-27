@@ -187,7 +187,7 @@ void ShowPluginMenu(
 		controller->window().widget(),
 		st::popupMenuWithIcons);
 	menu->addAction(
-		tr::ayu_PluginViewCode(),
+		tr::ayu_PluginViewCode(tr::now),
 		crl::guard(controller, [=] {
 			PreviewTextInIv(
 				controller,
@@ -197,7 +197,7 @@ void ShowPluginMenu(
 		&st::menuIconBotCommands);
 	if (suffix == u"elyx"_q || suffix == u"eaf"_q) {
 		menu->addAction(
-			tr::ayu_PluginArchiveContents(),
+			tr::ayu_PluginArchiveContents(tr::now),
 			crl::guard(controller, [=] {
 				ShowArchiveContents(
 					controller,
