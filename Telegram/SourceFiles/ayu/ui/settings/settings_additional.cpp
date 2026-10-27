@@ -219,7 +219,7 @@ void BuildCaretStudio(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 
 	builder.addButton({
 		.id = u"ayu/caretColorAuto"_q,
-		.title = tr::ayu_CaretColorUseAuto(),
+		.title = tr::ayu_CaretColorAuto(),
 		.st = &st::settingsButtonNoIcon,
 		.onClick = [=] { settings->setCaretCustomColor(0); },
 	});
