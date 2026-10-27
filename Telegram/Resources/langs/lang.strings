@@ -9479,10 +9479,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_CaretPreviewLabel" = "Нажмите и введите текст для проверки курсора";
 "ayu_CaretColor" = "Цвет курсора";
 "ayu_CaretColorAuto" = "Автоматически";
-"ayu_CaretColorUseAuto" = "Вернуть автоматический цвет";
-"ayu_AdditionalCaretHint" = "Параметры курсора действуют при включённом плавном движении. Свой цвет имеет приоритет над цветом акцента.";
-"ayu_AdditionalScrollHint" = "Шаг колеса задаёт расстояние за одно движение. Плавность влияет на скорость затухания.";
-"ayu_AdditionalActivityHint" = "Показываются только действия, которые Telegram передаёт вашему аккаунту в общих чатах.";
 "ayu_CaretReset" = "Сбросить настройки курсора";
 "ayu_SelectionScrollX2" = "Прокрутка при выделении: ×2 вместо ×1,5";
 "ayu_MiniAvatars" = "Мини-аватары отправителей в списке чатов";
