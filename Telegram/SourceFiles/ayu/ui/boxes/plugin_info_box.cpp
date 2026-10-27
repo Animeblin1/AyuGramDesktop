@@ -204,7 +204,6 @@ void ShowPluginMenu(
 	menu->popup(QCursor::pos());
 }
 
-} // namespace
 QString ExtractField(const QByteArray &data, const QString &key) {
 	// supports probably all kinds of weird python syntax + both " and '
 	// "description"
@@ -726,4 +725,4 @@ void ShowPluginInfoBox(
 	})).send();
 }
 
-}
+} // namespace Ui
