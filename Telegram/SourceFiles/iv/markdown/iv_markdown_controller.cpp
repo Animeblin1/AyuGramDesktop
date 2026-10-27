@@ -162,7 +162,9 @@ struct ReadSource {
 		const MarkdownParseLimits &limits) {
 	const auto info = QFileInfo(path);
 	auto name = info.fileName();
-	if (!IsReadableLocalFile(info) || !LooksLikeMarkdownFile(name)) {
+	const auto markdown = LooksLikeMarkdownFile(name);
+	if (!IsReadableLocalFile(info)
+		|| (!markdown && !IsTextLikePreviewFile(name))) {
 		return {};
 	} else if (info.size() > limits.maxSourceBytes) {
 		DEBUG_LOG(("Native Markdown IV: rejected local file too large: %1"
@@ -178,6 +180,26 @@ struct ReadSource {
 		DEBUG_LOG(("Native Markdown IV: could not read local file: %1"
 			).arg(path));
 		return {};
+	}
+	if (!markdown && data.left(8 * 1024).indexOf('\0') >= 0) {
+		DEBUG_LOG(("Native Markdown IV: rejected binary text file: %1"
+			).arg(path));
+		return {};
+	} else if (!markdown) {
+		// Reuses the markdown gate so invalid encodings are rejected here,
+		// and the converted block below still validates downstream.
+		const auto decoded = ValidateMarkdownSourceForIv(
+			data,
+			ParseOptions{ name });
+		if (!decoded.ok) {
+			DEBUG_LOG(("Native Markdown IV: rejected local text (%1): %2"
+				).arg(decoded.error
+				).arg(path));
+			return {};
+		}
+		data = ConvertTextLikePreviewSource(
+			name,
+			decoded.source.decoded).toUtf8();
 	}
 	return {
 		.path = info.absoluteFilePath(),
