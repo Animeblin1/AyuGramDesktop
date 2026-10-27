@@ -300,6 +300,22 @@ void BuildChatActivityAndTools(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.setter = &AyuSettings::setInlineCalculator,
 		.value = settings->inlineCalculatorValue(),
 	});
+
+	ayu.addSettingToggle({
+		.id = u"ayu/htmlPreviewWebview"_q,
+		.title = tr::ayu_HtmlPreviewWebview(),
+		.getter = &AyuSettings::htmlPreviewWebview,
+		.setter = &AyuSettings::setHtmlPreviewWebview,
+		.value = settings->htmlPreviewWebviewValue(),
+	});
+
+	ayu.addSettingToggle({
+		.id = u"ayu/linksOpenInWebview"_q,
+		.title = tr::ayu_LinksOpenInWebview(),
+		.getter = &AyuSettings::linksOpenInWebview,
+		.setter = &AyuSettings::setLinksOpenInWebview,
+		.value = settings->linksOpenInWebviewValue(),
+	});
 }
 
 const auto kMeta = BuildHelper({
