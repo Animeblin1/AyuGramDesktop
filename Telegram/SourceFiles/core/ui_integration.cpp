@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_url_handlers.h"
 #include "ayu/features/streamer_mode/streamer_mode.h"
+#include "ayu/ui/document_preview.h"
 
 
 namespace Core {
