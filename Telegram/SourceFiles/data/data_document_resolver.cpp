@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ayu/ui/document_preview.h"
 #include "ayu/ayu_settings.h"
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 
 
 namespace Data {
@@ -262,28 +263,39 @@ void ResolveDocument(
 		if (document->size >= Images::kReadBytesLimit) {
 			return false;
 		}
-		if (controller
-			&& document->filename().endsWith(
-				u".plugin"_q,
-				Qt::CaseInsensitive)
-			&& !document->filepath(true).isEmpty()) {
-			const auto path = document->location(true).name();
-			auto file = QFile(path);
-			if (file.open(QIODevice::ReadOnly)) {
-				const auto data = file.readAll();
-				file.close();
-				auto metadata = Ui::ParsePluginMetadata(data);
-				if (!metadata.id.isEmpty()
-					&& !metadata.name.isEmpty()) {
-					Ui::ShowPluginInfoBox(
-						controller,
-						path,
-						std::move(metadata));
-					return true;
-				}
-			}
+		const auto name = document->filename();
+		const auto isPlugin = name.endsWith(
+			u".plugin"_q,
+			Qt::CaseInsensitive);
+		const auto isArchive = name.endsWith(u".elyx"_q, Qt::CaseInsensitive)
+			|| name.endsWith(u".eaf"_q, Qt::CaseInsensitive);
+		if (!controller
+			|| (!isPlugin && !isArchive)
+			|| document->filepath(true).isEmpty()) {
+			return false;
 		}
-		return false;
+		const auto path = document->location(true).name();
+		auto file = QFile(path);
+		if (!file.open(QIODevice::ReadOnly)) {
+			return false;
+		}
+		const auto data = file.readAll();
+		file.close();
+		auto metadata = isPlugin
+			? Ui::ParsePluginMetadata(data)
+			: Ui::ParseArchiveMetadata(data);
+		const auto base = QFileInfo(name).baseName();
+		if (metadata.id.isEmpty()) {
+			metadata.id = base;
+		}
+		if (metadata.name.isEmpty()) {
+			metadata.name = base;
+		}
+		Ui::ShowPluginInfoBox(
+			controller,
+			path,
+			std::move(metadata));
+		return true;
 	};
 	const auto &location = document->location(true);
 	if (document->isTheme() && media->loaded(true)) {
