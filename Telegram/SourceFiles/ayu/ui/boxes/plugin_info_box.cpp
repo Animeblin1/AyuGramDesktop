@@ -88,7 +88,14 @@ void PreviewTextInIv(
 		Ui::Toast::Show(tr::ayu_PluginCodeFail(tr::now));
 		return;
 	}
+	// ponytail: the IV viewer reads and parses the file synchronously
+	// inside showMarkdown, so the temp copy can be removed right away;
+	// sweep leftovers from crashed sessions too.
 	Core::App().iv().showMarkdown(path, QVariant());
+	QFile::remove(path);
+	for (const auto &entry : dir.entryList(QDir::Files)) {
+		QFile::remove(dir.filePath(entry));
+	}
 }
 
 [[nodiscard]] QString ReadFileBounded(
@@ -610,6 +617,42 @@ void FillPluginInfoBox(
 					  closeButton->lifetime());
 }
 
+}
+
+PluginMetadata ParseArchiveMetadata(const QByteArray &archive) {
+	auto metadata = PluginMetadata();
+	const auto reader = std::make_shared<zlib::FileToRead>(archive);
+	const auto located = (reader->locateFile(
+		"metainfo.yml",
+		zlib::kCaseInsensitive) == UNZ_OK)
+	|| (reader->locateFile(
+		"metainfo.yaml",
+		zlib::kCaseInsensitive) == UNZ_OK);
+	if (!located) {
+		return metadata;
+	}
+	const auto bytes = reader->readCurrentFileContent(512 * 1024);
+	if (bytes.isEmpty()) {
+		return metadata;
+	}
+	const auto text = QString::fromUtf8(bytes);
+	const auto grab = [&](const QString &key) {
+		const auto re = QRegularExpression(
+			u"^%1:\\s*(\"?)([^\\r\\n\"]+)\\1\\s*$"_q.arg(key),
+			QRegularExpression::MultilineOption);
+		const auto match = re.match(text);
+		return match.hasMatch() ? match.captured(2).trimmed() : QString();
+	};
+	metadata.id = grab(u"id"_q).left(100);
+	metadata.name = grab(u"name"_q).left(100);
+	metadata.description = grab(u"description"_q).left(8000);
+	metadata.author = grab(u"author"_q).left(200);
+	metadata.version = grab(u"version"_q).left(32);
+	metadata.minVersion = grab(u"min_version"_q);
+	if (metadata.version.isEmpty()) {
+		metadata.version = u"1.0"_q;
+	}
+	return metadata;
 }
 
 PluginMetadata ParsePluginMetadata(const QByteArray &data) {

@@ -29,6 +29,9 @@ struct PluginMetadata {
 
 [[nodiscard]] PluginMetadata ParsePluginMetadata(const QByteArray &data);
 
+// Reads metainfo.yml from an .elyx/.eaf zip archive.
+[[nodiscard]] PluginMetadata ParseArchiveMetadata(const QByteArray &archive);
+
 void ShowPluginInfoBox(
 	not_null<Window::SessionController*> controller,
 	const QString& pluginPath,
