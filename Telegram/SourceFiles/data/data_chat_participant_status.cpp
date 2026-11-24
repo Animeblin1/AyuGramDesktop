@@ -315,7 +315,12 @@ SendError RestrictionError(
 			.text = tr::lng_frozen_restrict_title(tr::now),
 			.frozen = true,
 		});
-	} else if (const auto restricted = peer->amRestricted(restriction)) {
+	} else if (const auto user = peer->asUser()) {
+		if (user->isInaccessible()) {
+			return tr::lng_deleted(tr::now);
+		}
+	}
+	if (const auto restricted = peer->amRestricted(restriction)) {
 		if (const auto user = peer->asUser()) {
 			if (user->requiresPremiumToWrite()
 				&& !user->session().premium()) {
@@ -527,7 +532,9 @@ SendError FileRestrictionError(
 		}
 		break;
 	case Type::Video:
-		if (const auto error = file.isGifv() ? gifs : videos) {
+		if (const auto error = (file.isGifv() || file.sendsVideoAsGif())
+				? gifs
+				: videos) {
 			return error;
 		}
 		break;

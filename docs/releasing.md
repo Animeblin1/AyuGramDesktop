@@ -54,11 +54,12 @@ compilers do not fit in the runner's memory.
    files under `Telegram/Resources/winrc/` as well, and those lines carry
    AyuGram's product names, so all three conflict every time: keep the AyuGram
    side and raise its number by hand.
-3. Compile the branch for Linux in Telegram Desktop's published image, as
-   [building-linux.md](building-linux.md) describes, with `-e CONFIG=Debug` and
-   `-e KEEP_GOING=1` so that one pass lists every failing unit. With a warm
-   compiler cache this takes minutes; the release workflow reaches the same
-   error hours in. It does not compile the macOS- and Windows-only sources.
+3. Optionally compile the branch for Linux first, in Telegram Desktop's
+   published image, as [building-linux.md](building-linux.md) describes, with
+   `-e CONFIG=Debug` and `-e KEEP_GOING=1` so that one pass lists every failing
+   unit. With a warm compiler cache this takes minutes; the release workflow
+   reaches the same error hours in. It does not compile the macOS- and
+   Windows-only sources, and the release workflow compiles everything anyway.
 4. Push the branch and let `Source checks` go green.
 5. Dispatch the release **from the default branch**, naming the branch to
    build: `gh workflow run Release --ref dev -f ref=codex/ayu-<version>`,
@@ -147,15 +148,19 @@ placed on `C:` gets through the compile and dies on the link, three hours in.
 The Windows job prints `df -h` into the log for this reason, since the fuller
 report in the run summary cannot be read without a GitHub login.
 
-`Cache keepalive` runs twice a week and restores every key prefix, spelling
-each path exactly as the release workflow spells it. The path is hashed into
-the cache entry's version, so a keepalive that writes the same bytes to a
-differently written path misses every entry and refreshes nothing. GitHub
-evicts a cache nothing has read for seven days; raising that window requires a
-paid plan. Scheduled runs always use the default branch, which is both the
-scope the release needs and the only place GitHub will start them from. GitHub
-also disables scheduled workflows in a repository with no activity for sixty
-days, which would stop the refreshing silently.
+`Cache keepalive` runs daily and looks every key prefix up without downloading
+it: a lookup counts as a read. GitHub evicts a cache nothing has read for seven
+days; raising that window requires a paid plan. Each path is written exactly
+as the release job's runner sees it, because the path is hashed into the cache
+entry's version, and a lookup that misses fails the job. On Windows the
+version also carries a Windows-only marker, so the Windows entries need a
+Windows runner. Elsewhere it does not depend on the runner, and the macOS
+entries are looked up from Linux with the macOS workspace path written out:
+macOS runners are the ones in short supply, and a keepalive that waits for one
+refreshes nothing. Scheduled runs always use the default branch, which is both
+the scope the release needs and the only place GitHub will start them from.
+GitHub also disables scheduled workflows in a repository with no activity for
+sixty days, which would stop the refreshing silently.
 
 The compiler cache key deliberately carries no toolchain fingerprint. `ccache`
 already hashes the compiler through `compiler_check = content`, so a runner
@@ -239,6 +244,14 @@ goes to AyuGram as a pull request of its own against `dev`, separate from any
 version merge, so that it can be reviewed and taken alone. Start it as a draft
 until the advertised platform checks pass. An open PR or a gap between releases
 is not evidence that upstream is abandoned.
+
+A fix to Telegram Desktop's own code, which AyuGram carries unchanged, goes to
+both projects: one pull request to `telegramdesktop/tdesktop` from a branch off
+its `dev`, and the same change to AyuGram from a branch off AyuGram's `dev`,
+each description linking the other. AyuGram takes Telegram Desktop releases
+with a delay, so its own pull request is what gets the fix to AyuGram until
+then. Read the port instead of trusting a clean cherry-pick: AyuGram's base is
+older, and the same line can need different code there.
 
 `.gitmodules` points at AyuGram's `lib_ui`, `lib_tl` and `codegen`, or at this
 fork's copy of one while its pin needs a merge AyuGram has not published. Keep

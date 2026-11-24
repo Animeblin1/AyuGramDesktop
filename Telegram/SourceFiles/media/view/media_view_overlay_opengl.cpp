@@ -107,7 +107,9 @@ float roundedCorner() {
 	};
 }
 
-[[nodiscard]] QRectF StoryCropTextureRect(
+} // namespace
+
+QRectF OverlayWidget::Renderer::StoryCropTextureRect(
 		QSizeF imageSize,
 		QSizeF targetSize) {
 	if (imageSize.isEmpty() || targetSize.isEmpty()) {
@@ -134,8 +136,6 @@ float roundedCorner() {
 	}
 	return QRectF(0., 0., 1., 1.);
 }
-
-} // namespace
 
 OverlayWidget::RendererGL::RendererGL(not_null<OverlayWidget*> owner)
 : _owner(owner) {
@@ -559,6 +559,13 @@ void OverlayWidget::RendererGL::paintTransformedStaticContent(
 				stride,
 				data);
 			_rgbaSize[index] = image.size();
+		}
+		if (_f->hasOpenGLFeature(QOpenGLFunctions::NPOTTextureRepeat)) {
+			_f->glGenerateMipmap(GL_TEXTURE_2D);
+			_f->glTexParameteri(
+				GL_TEXTURE_2D,
+				GL_TEXTURE_MIN_FILTER,
+				GL_LINEAR_MIPMAP_LINEAR);
 		}
 	}
 

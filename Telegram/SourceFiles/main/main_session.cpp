@@ -30,6 +30,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/storage_account.h"
 #include "storage/storage_facade.h"
 #include "data/components/credits.h"
+#include "data/data_stories.h"
+#include "data/data_story_drafts.h"
+#include "data/data_story_edit_sources.h"
 #include "data/components/ephemeral_messages.h"
 #include "data/components/factchecks.h"
 #include "data/components/gift_auctions.h"
@@ -61,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "support/support_helper.h"
 #include "lang/lang_keys.h"
 #include "core/application.h"
+#include "tgw/tgw_storage.h"
 #include "ui/text/text_utilities.h"
 #include "ui/layers/generic_box.h"
 #include "styles/style_layers.h"
@@ -314,6 +318,7 @@ Session::Session(
 	_api->requestNotifySettings(MTP_inputNotifyBroadcasts());
 
 	Core::App().downloadManager().trackSession(this);
+	Tgw::StartStorage(this);
 
 	appConfig().value(
 	) | rpl::on_next([=] {
@@ -368,6 +373,8 @@ QByteArray Session::validTmpPassword() const {
 void Session::finishLogout() {
 	Wallet::CloseWallet(this);
 	unlockTerms();
+	data().stories().drafts().clear();
+	data().stories().editSources().clear();
 	data().clear();
 	data().clearLocalStorage();
 }
@@ -611,6 +618,7 @@ void Session::addWindow(not_null<Window::SessionController*> controller) {
 	) | rpl::map([=](Dialogs::Key chat) {
 		return chat.peer();
 	}) | rpl::distinct_until_changed());
+	_windowAdded.fire({});
 }
 
 bool Session::uploadsInProgress() const {
@@ -668,6 +676,10 @@ void Session::uploadsStop() {
 auto Session::windows() const
 -> const base::flat_set<not_null<Window::SessionController*>> & {
 	return _windows;
+}
+
+rpl::producer<> Session::windowAdded() const {
+	return _windowAdded.events();
 }
 
 Window::SessionController *Session::tryResolveWindow(

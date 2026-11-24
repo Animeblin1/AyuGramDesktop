@@ -67,6 +67,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/storage_shared_media.h"
 #include "calls/calls_instance.h"
 #include "base/unixtime.h"
+#include "tgw/tgw_state.h"
+#include "tgw/tgw_storage.h"
 #include "window/window_session_controller.h"
 #include "window/window_controller.h"
 #include "wallet/wallet_panel.h"
@@ -236,6 +238,28 @@ bool HasForceLogoutNotification(const MTPUpdates &updates) {
 		return checkUpdate(updates.c_updateShort().vupdate());
 	}
 	return false;
+}
+
+[[nodiscard]] const MTPMessage *ProcessTopMessageReply(
+		not_null<Data::Session*> owner,
+		const MTPmessages_Messages &result,
+		PeerId peerId,
+		MsgId id) {
+	return result.match([](const MTPDmessages_messagesNotModified &)
+	-> const MTPMessage* {
+		return nullptr;
+	}, [&](const auto &data) -> const MTPMessage* {
+		owner->processUsers(data.vusers());
+		owner->processChats(data.vchats());
+		for (const auto &message : data.vmessages().v) {
+			if ((message.type() != mtpc_messageEmpty)
+				&& (IdFromMessage(message) == id)
+				&& (PeerFromMessage(message) == peerId)) {
+				return &message;
+			}
+		}
+		return nullptr;
+	});
 }
 
 } // namespace
@@ -416,6 +440,11 @@ void Updates::channelDifferenceDone(
 	}, [&](const MTPDupdates_channelDifferenceTooLong &data) {
 		session().data().processUsers(data.vusers());
 		session().data().processChats(data.vchats());
+		Data::ApplyResponseTopics(
+			&session().data(),
+			data.vtopics(),
+			{},
+			channel);
 		const auto history = session().data().historyLoaded(channel->id);
 		if (history) {
 			history->setNotLoadedAtBottom();
@@ -437,9 +466,14 @@ void Updates::channelDifferenceDone(
 			forum->reloadTopics();
 		}
 	}, [&](const MTPDupdates_channelDifference &data) {
-		feedChannelDifference(data);
+		feedChannelDifference(channel, data);
 		channel->ptsInit(data.vpts().v);
 	});
+	if (isFinal) {
+		if (const auto history = session().data().historyLoaded(channel->id)) {
+			history->clearTopMessageHint();
+		}
+	}
 
 	channel->ptsSetRequesting(false);
 
@@ -458,9 +492,11 @@ void Updates::channelDifferenceDone(
 }
 
 void Updates::feedChannelDifference(
+		not_null<ChannelData*> channel,
 		const MTPDupdates_channelDifference &data) {
 	session().data().processUsers(data.vusers());
 	session().data().processChats(data.vchats());
+	Data::ApplyResponseTopics(&session().data(), data.vtopics(), {}, channel);
 
 	_handlingChannelDifference = true;
 	applyConvertToScheduledOnSend(data.vother_updates());
@@ -472,6 +508,7 @@ void Updates::feedChannelDifference(
 		data.vother_updates(),
 		SkipUpdatePolicy::SkipMessageIds);
 	_handlingChannelDifference = false;
+	Data::ApplyResponseTopics(&session().data(), data.vtopics(), {}, channel);
 }
 
 void Updates::channelDifferenceFail(
@@ -482,6 +519,35 @@ void Updates::channelDifferenceFail(
 		error.type(),
 		error.description()));
 	failDifferenceStartTimerFor(channel);
+}
+
+void Updates::applyChannelTopMessageHint(
+		not_null<ChannelData*> channel,
+		const MTPDupdateChannelTooLong &data) {
+	const auto id = MsgId(data.vlast_msg_id().value_or_empty());
+	const auto date = TimeId(data.vlast_msg_date().value_or_empty());
+	if (!IsServerMsgId(id) || (date <= 0) || !channel->amIn()) {
+		return;
+	}
+	const auto history = session().data().historyLoaded(channel->id);
+	if (!history || !history->applyTopMessageHint(id, date)) {
+		return;
+	}
+	api().request(MTPchannels_GetMessages(
+		channel->inputChannel(),
+		MTP_vector<MTPInputMessage>(1, MTP_inputMessageID(MTP_int(id)))
+	)).done([=](const MTPmessages_Messages &result) {
+		const auto message = history->topMessageHintActive(id)
+			? ProcessTopMessageReply(
+				&history->owner(),
+				result,
+				history->peer->id,
+				id)
+			: nullptr;
+		history->topMessageHintLoaded(id, message);
+	}).fail([=] {
+		history->topMessageHintLoaded(id, nullptr);
+	}).send();
 }
 
 void Updates::stateDone(const MTPupdates_State &state) {
@@ -511,7 +577,12 @@ void Updates::differenceDone(const MTPupdates_Difference &result) {
 	} break;
 	case mtpc_updates_differenceSlice: {
 		const auto &d = result.c_updates_differenceSlice();
-		feedDifference(d.vusers(), d.vchats(), d.vnew_messages(), d.vother_updates());
+		feedDifference(
+			d.vusers(),
+			d.vchats(),
+			d.vnew_messages(),
+			d.vother_updates(),
+			d.vtopics());
 
 		const auto &s = d.vintermediate_state().c_updates_state();
 		setState(s.vpts().v, s.vdate().v, s.vqts().v, s.vseq().v);
@@ -525,7 +596,12 @@ void Updates::differenceDone(const MTPupdates_Difference &result) {
 	} break;
 	case mtpc_updates_difference: {
 		const auto &d = result.c_updates_difference();
-		feedDifference(d.vusers(), d.vchats(), d.vnew_messages(), d.vother_updates());
+		feedDifference(
+			d.vusers(),
+			d.vchats(),
+			d.vnew_messages(),
+			d.vother_updates(),
+			d.vtopics());
 
 		stateDone(d.vstate());
 	} break;
@@ -624,14 +700,20 @@ void Updates::feedDifference(
 		const MTPVector<MTPUser> &users,
 		const MTPVector<MTPChat> &chats,
 		const MTPVector<MTPMessage> &msgs,
-		const MTPVector<MTPUpdate> &other) {
+		const MTPVector<MTPUpdate> &other,
+		const MTPVector<MTPForumTopic> *topics) {
 	Core::App().checkAutoLock();
 	session().data().processUsers(users);
 	session().data().processChats(chats);
+	Data::ApplyResponseTopics(&session().data(), topics, msgs.v);
 	applyConvertToScheduledOnSend(other);
 	feedMessageIds(other);
 	session().data().processMessages(msgs, NewMessageType::Unread);
 	feedUpdateVector(other, SkipUpdatePolicy::SkipMessageIds);
+	// WHY: applying before the messages spares them a topic request, but
+	// older service edits and other_updates then overwrite the entries,
+	// which hold the current state, so they are applied again on top.
+	Data::ApplyResponseTopics(&session().data(), topics, msgs.v);
 }
 
 void Updates::differenceFail(const MTP::Error &error) {
@@ -866,6 +948,7 @@ void Updates::channelRangeDifferenceDone(
 
 		_session->data().processUsers(d.vusers());
 		_session->data().processChats(d.vchats());
+		Data::ApplyResponseTopics(&_session->data(), d.vtopics(), {}, channel);
 
 		nextRequestPts = d.vdialog().match([&](const MTPDdialog &data) {
 			return data.vpts().value_or_empty();
@@ -880,7 +963,7 @@ void Updates::channelRangeDifferenceDone(
 	case mtpc_updates_channelDifference: {
 		const auto &d = result.c_updates_channelDifference();
 
-		feedChannelDifference(d);
+		feedChannelDifference(channel, d);
 
 		nextRequestPts = d.vpts().v;
 		isFinal = d.is_final();
@@ -1432,11 +1515,20 @@ void Updates::applyUpdateNoPtsCheck(const MTPUpdate &update) {
 		const auto &d = update.c_updateReadHistoryInbox();
 		const auto peer = peerFromMTP(d.vpeer());
 		if (const auto history = _session->data().historyLoaded(peer)) {
-			const auto folderId = d.vfolder_id().value_or_empty();
-			history->applyInboxReadUpdate(
-				folderId,
-				d.vmax_id().v,
-				d.vstill_unread_count().v);
+			const auto rootId = d.vtop_msg_id().value_or_empty();
+			if (history->peer->forumTopicFor(rootId)) {
+				session().data().updateRepliesReadTill({
+					{ peer, rootId },
+					d.vmax_id().v,
+					false,
+				});
+			} else {
+				const auto folderId = d.vfolder_id().value_or_empty();
+				history->applyInboxReadUpdate(
+					folderId,
+					d.vmax_id().v,
+					d.vstill_unread_count().v);
+			}
 		}
 	} break;
 
@@ -1527,6 +1619,11 @@ void Updates::applyUpdateNoPtsCheck(const MTPUpdate &update) {
 	case mtpc_updateEditMessage: {
 		const auto &d = update.c_updateEditMessage();
 		_session->data().updateEditedMessage(d.vmessage());
+	} break;
+
+	case mtpc_updateMessageWidgetData: {
+		const auto &d = update.c_updateMessageWidgetData();
+		Tgw::ApplyStateUpdate(_session, d);
 	} break;
 
 	case mtpc_updateChannelWebPage: {
@@ -1772,6 +1869,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 						newId);
 					if (existing && !local->mainView()) {
 						const auto history = local->history();
+						Tgw::MoveStorage(local, existing);
 						local->destroy();
 						history->requestChatListMessage();
 					} else {
@@ -1795,6 +1893,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 			} else {
 				owner.histories().checkTopicCreated(id, newId);
 			}
+			owner.histories().checkReplyTargetSent(id, newId);
 			session().data().unregisterMessageRandomId(randomId);
 		} else {
 			Core::App().calls().handleUpdate(&session(), update);
@@ -1839,6 +1938,11 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 	// Edited messages.
 	case mtpc_updateEditMessage: {
 		const auto &d = update.c_updateEditMessage();
+		updateAndApply(d.vpts().v, d.vpts_count().v, update);
+	} break;
+
+	case mtpc_updateMessageWidgetData: {
+		const auto &d = update.c_updateMessageWidgetData();
 		updateAndApply(d.vpts().v, d.vpts_count().v, update);
 	} break;
 
@@ -2405,6 +2509,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 		}
 	} break;
 
+	case mtpc_updateNewBotConnection:
 	case mtpc_updateNewAuthorization: {
 		session().api().authorizations().apply(update);
 	} break;
@@ -2610,6 +2715,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 			if (!pts || channel->pts() < pts->v) {
 				getChannelDifference(channel);
 			}
+			applyChannelTopMessageHint(channel, d);
 		}
 	} break;
 
@@ -2691,6 +2797,10 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 
 	case mtpc_updateChannelAvailableMessages: {
 		const auto &d = update.c_updateChannelAvailableMessages();
+		Tgw::ClearHistoryStorage(
+			&session(),
+			peerFromChannel(d.vchannel_id()),
+			d.vavailable_min_id().v);
 		if (const auto channel = session().data().channelLoaded(d.vchannel_id())) {
 			channel->setAvailableMinId(d.vavailable_min_id().v);
 			if (const auto history = session().data().historyLoaded(channel)) {
@@ -2734,6 +2844,27 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 				}();
 				if (!done) {
 					forum->reloadTopics();
+				}
+			}
+		}
+	} break;
+
+	case mtpc_updateEditForumTopic: {
+		const auto &d = update.c_updateEditForumTopic();
+		const auto peerId = peerFromMTP(d.vpeer());
+		if (const auto peer = session().data().peerLoaded(peerId)) {
+			if (const auto topic = peer->forumTopicFor(d.vtopic_id().v)) {
+				if (const auto &title = d.vtitle()) {
+					topic->applyTitle(qs(*title));
+				}
+				if (const auto icon = d.vicon_emoji_id()) {
+					topic->applyIconId(icon->v);
+				}
+				if (const auto closed = d.vclosed()) {
+					topic->setClosed(mtpIsTrue(*closed));
+				}
+				if (const auto hidden = d.vhidden()) {
+					topic->setHidden(mtpIsTrue(*hidden));
 				}
 			}
 		}

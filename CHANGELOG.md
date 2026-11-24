@@ -1,5 +1,105 @@
 # Changelog
 
+## 7.4.6 - 2026-11-24
+
+- Updated the application base to Telegram Desktop 7.4.6 ahead of an AyuGram
+  release of it: mini app previews in bot profiles, buying, selling and
+  repricing on-chain gifts for Grams with the network fee shown, gift offers
+  and listings in the wallet history, the current owner of a collectible
+  from its gift notification, spoilers no longer repainted while nothing of
+  them is visible, and a fix for pending suggestions being cleared.
+- Interactive widgets in bot messages now run in a separate helper process,
+  `TelegramWidgetHelper`. The application accepts only the helper it was
+  built with, so the macOS bundle and both Windows packages ship it
+  unchanged.
+- `lib_ui` comes from this fork's copy of AyuGram's branch with Telegram
+  Desktop 7.4.6 merged in; `codegen` and `lib_tl` did not move.
+
+## 7.4.4-3 - 2026-11-19
+
+- An autoplaying video in a chat keeps its position when the inline player
+  switches to another quality, and keeps playing when its message view is
+  rebuilt. Before, it could jump back to the start a few seconds in.
+- A video that is already playing follows a quality that another video has
+  switched to instead of staying on its lower rendition, and starts over
+  instead of freezing if the new rendition fails to open.
+- The video player no longer reads or writes its own state, or its audio
+  track's, after an update handler has destroyed it, which the automatic
+  quality switch can do. In the media viewer that was a use of freed memory.
+
+## 7.4.4-2 - 2026-11-18
+
+- AI summaries of messages now always ask the server for the reader's
+  language: the chat translation language when translation is on, otherwise
+  the "Translate to" language from settings. Without it the server sometimes
+  summarized Russian posts in English.
+
+## 7.4.4 - 2026-11-14
+
+- Updated the application base to Telegram Desktop 7.4.4 ahead of an AyuGram
+  release of it: hardening of interactive widgets in bot messages (a storage
+  quota, limits on stretched groups and on colour glyphs drawn in a frame, a
+  damaged PNG with an impossible bit depth is refused, checked CSS keywords)
+  and bounded dictionary parsing in the wallet engine.
+- `lib_ui`, `codegen` and `lib_tl` did not move.
+
+## 7.4.3 - 2026-11-13
+
+- Updated the application base to Telegram Desktop 7.4.3 ahead of an AyuGram
+  release of it: replies to forwarded messages with an instant local bubble,
+  a voice and round messages filter in shared media, multiple selection in
+  the contacts and proxy lists, Ctrl+O to replace media while editing a
+  caption, and fixes for a freeze when a screen reader reads a long history,
+  a crash opening media of unsent scheduled messages, file selection in mini
+  apps and a squeezed maximized window on Windows.
+- The contacts list keeps AyuGram's mutual contact mark and its hint on
+  click: Telegram Desktop 7.4.3 moved the list into its own box with
+  selectable rows, and the mark moved with it.
+- `lib_ui` comes from this fork's copy of AyuGram's branch with Telegram
+  Desktop 7.4.3 merged in; `codegen` and `lib_tl` did not move.
+
+## 7.4.2 - 2026-11-11
+
+- Updated the application base to Telegram Desktop 7.4.2 ahead of an AyuGram
+  release of it: Qt's HTTP response limits for CVE-2026-116337, a chats column
+  and a third column of its own for each window, restored on relaunch, inline
+  video playback up to 1920x1920, and fixes for the first message missing
+  from a just-created topic, two chat lists shown at once when switching
+  filters and a crash on quit with the story views menu open.
+- The userpic in the notification preview keeps AyuGram's corner radius and
+  takes Telegram Desktop's smoothing, which fixes its blurry edge.
+- `lib_ui`, `codegen` and `lib_tl` did not move.
+
+## 7.4.1 - 2026-11-09
+
+- Updated the application base to Telegram Desktop 7.4.1 ahead of an AyuGram
+  release of it, with 7.4.0: interactive widgets in bot messages, payments
+  and data signing for them through Gram Wallet's TON Connect window, a fix
+  for a crash at launch and several other crash fixes.
+- An incoming message is now counted as unread before the new chat view can
+  see it. Since 7.3.3 the count was raised before the chat was notified of the
+  message, but the new chat view, the default since 7.3.5, can read it
+  earlier still, while the message is being indexed. In a chat with no
+  messages shown, that read never reached the server and other devices kept
+  the message unread.
+- `lib_ui` comes from this fork's copy of AyuGram's branch with Telegram
+  Desktop 7.4.1 merged in; `codegen` and `lib_tl` did not move.
+
+## 7.3.5 - 2026-11-04
+
+- Updated the application base to Telegram Desktop 7.3.5 ahead of an AyuGram
+  release of it, with the changes of the 7.3.4 beta: the new chat view for
+  everyone, search tabs for apps, channels and media, and a large set of
+  security and crash fixes.
+- Kept AyuGram's music row with the cover in profiles. Telegram Desktop 7.3.5
+  moved profile music into a pill under the action buttons; that pill stays
+  hidden so the track is not shown twice, while the balance pill works as in
+  Telegram Desktop.
+- Clear the ID search selection together with the other search rows, which
+  the new deselect-on-top step of the chat search can now reach.
+- `lib_ui` comes from this fork's copy of AyuGram's branch with Telegram
+  Desktop 7.3.5 merged in; `codegen` and `lib_tl` did not move.
+
 ## 7.3.3 - 2026-10-22
 
 - Updated the application base to Telegram Desktop 7.3.3 ahead of an AyuGram

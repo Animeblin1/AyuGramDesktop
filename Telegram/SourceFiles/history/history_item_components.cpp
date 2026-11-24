@@ -918,7 +918,9 @@ ReplyKeyboard::ReplyKeyboard(
 						RegExp,
 						QChar(0x2B50))
 					: row[j].text;
+				auto prependsIcon = false;
 				const auto withEmoji = [&](const style::IconEmoji &icon) {
+					prependsIcon = true;
 					return Ui::Text::IconEmoji(&icon).append(text);
 				};
 				const auto textWithEntities = [&] {
@@ -973,6 +975,12 @@ ReplyKeyboard::ReplyKeyboard(
 							.session = session,
 							.repaint = [=] { _st->repaint(_item); },
 						}));
+					if (prependsIcon) {
+						button.textWithoutIcon.setText(
+							_st->textStyle(),
+							TextUtilities::SingleLine(text),
+							kPlainTextOptions);
+					}
 				} else {
 					button.text.setText(
 						_st->textStyle(),
@@ -1363,7 +1371,11 @@ void ReplyKeyboard::Style::paintButton(
 		tw = st::botKbStyle.font->elidew;
 	}
 	paintButtonStart(p, st, button.color);
-	button.text.draw(p, {
+	const auto &text = (!button.textWithoutIcon.isEmpty()
+		&& button.text.maxWidth() > tw)
+		? button.textWithoutIcon
+		: button.text;
+	text.draw(p, {
 		.position = {
 			tx,
 			rect.y() + _st->textTop + ((rect.height() - _st->height) / 2),
@@ -1588,8 +1600,11 @@ TextWithEntities ComposeTodoTasksList(
 				names.clear();
 				break;
 			}
-			names.push_back(
-				TextWithEntities().append('"').append(i->text).append('"'));
+			names.push_back(tr::lng_action_todo_task_quote(
+				tr::now,
+				lt_task,
+				i->text,
+				tr::marked));
 		}
 	}
 	return ComposeTodoTasksList(ids.size(), names);
@@ -1600,8 +1615,11 @@ TextWithEntities ComposeTodoTasksList(
 	auto names = std::vector<TextWithEntities>();
 	names.reserve(append->list.size());
 	for (const auto &task : append->list) {
-		names.push_back(
-			TextWithEntities().append('"').append(task.text).append('"'));
+		names.push_back(tr::lng_action_todo_task_quote(
+			tr::now,
+			lt_task,
+			task.text,
+			tr::marked));
 	}
 	return ComposeTodoTasksList(names.size(), names);
 }

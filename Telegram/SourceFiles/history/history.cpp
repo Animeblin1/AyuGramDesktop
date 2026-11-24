@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_item_components.h"
 #include "history/history_item_helpers.h"
 #include "history/history_streamed_drafts.h"
+#include "history/history_top_message_hint.h"
 #include "history/history_translation.h"
 #include "history/history_unread_things.h"
 #include "iv/editor/iv_editor_session.h"
@@ -71,6 +72,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/storage_shared_media.h"
 #include "storage/storage_account.h"
 #include "support/support_helper.h"
+#include "tgw/tgw_storage.h"
 #include "ui/image/image.h"
 #include "ui/text/text_options.h"
 #include "ui/text/text_utilities.h"
@@ -220,6 +222,9 @@ void History::setHasPendingResizedItems() {
 }
 
 void History::itemRemoved(not_null<HistoryItem*> item) {
+	if (const auto hint = _topMessageHint.get()) {
+		hint->itemRemoved(item);
+	}
 	if (item == _joinedMessage) {
 		_joinedMessage = nullptr;
 	} else if (item == _newPeerNameChange) {
@@ -766,6 +771,7 @@ void History::destroyMessage(not_null<HistoryItem*> item) {
 }
 
 void History::destroyMessagesByDates(TimeId minDate, TimeId maxDate) {
+	Tgw::ClearDatesStorage(this, minDate, maxDate);
 	auto toDestroy = std::vector<not_null<HistoryItem*>>();
 	toDestroy.reserve(_items.size());
 	for (const auto &message : _items) {
@@ -1684,19 +1690,9 @@ void History::newItemAdded(not_null<HistoryItem*> item, NewAddType type) {
 	if (type == NewAddType::StreamedDraftFinish) {
 		applyStreamedDraftFinish(item);
 	}
-	item->indexAsNewItem();
-	item->addToMessagesIndex();
-	if (const auto from = item->from() ? item->from()->asUser() : nullptr) {
-		if (from == item->author()) {
-			_sendActionPainter.clear(from);
-			owner().sendActionManager().repliesPaintersClear(this, from);
-			Ayu::ActivityFeed::ClearActivity(from, peer, item->topicRootId());
-		}
-		from->madeAction(item->date());
-	}
-	item->contributeToSlowmode();
-	// WHY: count it before notifyNewItemAdded: a shown chat may read it
-	// synchronously, and readInboxTill trusts the unread count.
+	// WHY: count it before addToMessagesIndex and notifyNewItemAdded: both
+	// let a shown chat read it synchronously, and readInboxTill trusts the
+	// unread count.
 	if (!item->out()) {
 		if (item->unread(this)) {
 			if (unreadCountKnown()) {
@@ -1708,6 +1704,17 @@ void History::newItemAdded(not_null<HistoryItem*> item, NewAddType type) {
 			inboxRead(item);
 		}
 	}
+	item->indexAsNewItem();
+	item->addToMessagesIndex();
+	if (const auto from = item->from() ? item->from()->asUser() : nullptr) {
+		if (from == item->author()) {
+			_sendActionPainter.clear(from);
+			owner().sendActionManager().repliesPaintersClear(this, from);
+			Ayu::ActivityFeed::ClearActivity(from, peer, item->topicRootId());
+		}
+		from->madeAction(item->date());
+	}
+	item->contributeToSlowmode();
 	auto notification = Data::ItemNotification{
 		.item = item,
 		.type = Data::ItemNotificationType::Message,
@@ -2007,8 +2014,8 @@ void History::checkLastMessage() {
 
 void History::addItemsToLists(
 		const std::vector<not_null<HistoryItem*>> &items) {
-	std::deque<not_null<UserData*>> *lastAuthors = nullptr;
-	base::flat_set<not_null<PeerData*>> *markupSenders = nullptr;
+	auto lastAuthors = (std::deque<not_null<UserData*>>*)nullptr;
+	auto markupSenders = (base::flat_set<not_null<PeerData*>>*)nullptr;
 	if (peer->isChat()) {
 		lastAuthors = &peer->asChat()->lastAuthors;
 		markupSenders = &peer->asChat()->markupSenders;
@@ -2451,7 +2458,7 @@ void History::setFakeUnreadWhileOpened(bool enabled) {
 	owner().chatsFilters().refreshHistory(this);
 }
 
-[[nodiscard]] bool History::fakeUnreadWhileOpened() const {
+bool History::fakeUnreadWhileOpened() const {
 	return (_flags & Flag::FakeUnreadWhileOpened);
 }
 
@@ -2677,7 +2684,7 @@ void History::applyPinnedUpdate(const MTPDupdateDialogPinned &data) {
 }
 
 TimeId History::adjustedChatListTimeId() const {
-	const auto result = chatListTimeId();
+	const auto result = std::max(chatListTimeId(), topMessageHintDate());
 	if (const auto channel = peer->asChannel()) {
 		if (channel->isCommunity()) {
 			if (const auto info = channel->communityInfo()) {
@@ -3170,6 +3177,9 @@ void History::setLastServerMessage(HistoryItem *item) {
 
 void History::setLastMessage(HistoryItem *item) {
 	if (_lastMessage && *_lastMessage == item) {
+		if (const auto hint = _topMessageHint.get()) {
+			hint->lastMessageSet(item, false);
+		}
 		return;
 	}
 	_lastMessage = item;
@@ -3186,6 +3196,9 @@ void History::setLastMessage(HistoryItem *item) {
 		if (!chatListMessageKnown()) {
 			setFakeChatListMessage();
 		}
+	}
+	if (const auto hint = _topMessageHint.get()) {
+		hint->lastMessageSet(item, true);
 	}
 }
 
@@ -3502,8 +3515,13 @@ bool History::shouldBeInChatList() const {
 			return true;
 		}
 	}
+	const auto last = lastMessage();
 	return !lastMessageKnown()
-		|| (lastMessage() != nullptr);
+		|| (last != nullptr && !isNewPeerMessage(last));
+}
+
+bool History::isNewPeerMessage(not_null<HistoryItem*> item) const {
+	return (item == _newPeerPhotoChange) || (item == _newPeerNameChange);
 }
 
 void History::unknownMessageDeleted(MsgId messageId) {
@@ -3511,6 +3529,9 @@ void History::unknownMessageDeleted(MsgId messageId) {
 		.arg(peer->id.value & PeerId::kChatTypeMask)
 		.arg(messageId.bare));*/
 	_unknownDeletedMessages[messageId] = base::unixtime::now();
+	if (const auto hint = _topMessageHint.get()) {
+		hint->unknownMessageDeleted(messageId);
+	}
 	if (_inboxReadBefore && messageId >= *_inboxReadBefore) {
 		owner().histories().requestDialogEntry(this);
 	}
@@ -4237,6 +4258,7 @@ void History::checkNewPeerMessages() {
 	if (name && !_newPeerNameChange) {
 		_newPeerNameChange = add(tr::lng_new_contact_updated_name, name);
 	}
+	updateChatListExistence();
 }
 
 void History::insertMessageToBlocks(not_null<HistoryItem*> item) {
@@ -4510,6 +4532,7 @@ void History::clear(ClearType type, bool markEmpty) {
 			messages->removeAll();
 		}
 		clearLastKeyboard();
+		clearTopMessageHint();
 	}
 
 	if (const auto chat = peer->asChat()) {
@@ -4524,6 +4547,10 @@ void History::clear(ClearType type, bool markEmpty) {
 }
 
 void History::clearUpTill(MsgId availableMinId) {
+	Tgw::ClearHistoryStorage(this, availableMinId);
+	if (const auto hint = _topMessageHint.get()) {
+		hint->clearedUpTill(availableMinId);
+	}
 	auto remove = std::vector<not_null<HistoryItem*>>();
 	remove.reserve(_items.size());
 	for (const auto &item : _items) {
@@ -4531,6 +4558,7 @@ void History::clearUpTill(MsgId availableMinId) {
 		if (!item->isRegular()) {
 			continue;
 		} else if (itemId == availableMinId) {
+			Tgw::DeleteMessageStorage(item.get());
 			owner().scheduleItemPhotoCacheClear(item.get());
 			item->applyEditionToHistoryCleared();
 		} else if (itemId < availableMinId) {
@@ -4652,6 +4680,7 @@ void History::refreshHiddenLinksItems() {
 	for (const auto &id : refresh) {
 		if (const auto item = owner->message(id)) {
 			item->setHasHiddenLinks(false);
+			item->updateDependentServiceText();
 			owner->requestItemViewRefresh(item);
 		}
 	}

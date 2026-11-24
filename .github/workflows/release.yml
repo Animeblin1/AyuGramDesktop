@@ -106,7 +106,10 @@ jobs:
           archive="$RUNNER_TEMP/$root-full.tar"
           git archive --format=tar --prefix="$root/" HEAD -o "$archive"
           while read -r revision path rest; do
-            revision="${revision#[-+U]}"
+            # A submodule the checkout skips, like widget-sandbox's
+            # test262 with update = none, has no tree to archive.
+            case "$revision" in -*) continue ;; esac
+            revision="${revision#[+U]}"
             test "$(git -C "$path" rev-parse HEAD)" = "$revision"
             part="$RUNNER_TEMP/submodule-$(printf '%s' "$path" | sha256sum | cut -c1-16).tar"
             git -C "$path" archive --format=tar --prefix="$root/$path/" "$revision" -o "$part"
@@ -375,6 +378,9 @@ jobs:
           if ($signature.Status -ne 'NotSigned') { throw "Unexpected application signature status: $($signature.Status)." }
           $d3d = Join-Path $out 'modules\x64\d3d\d3dcompiler_47.dll'
           if (-not (Test-Path $d3d)) { throw 'D3D compiler module is missing.' }
+          $helper = Join-Path $out 'modules\x64\TelegramWidgetHelper.exe'
+          if (-not (Test-Path $helper)) { throw 'Widget helper is missing.' }
+          if ((Get-AuthenticodeSignature $helper).Status -ne 'NotSigned') { throw 'Unexpected widget helper signature.' }
           if (-not (Test-Path (Join-Path $env:SRC 'Telegram\Resources\art\icon256.ico'))) { throw 'Windows application icon is missing.' }
           choco install innosetup --version=6.7.1 --no-progress -y
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
@@ -391,6 +397,8 @@ jobs:
           New-Item -ItemType Directory -Force (Join-Path $portable 'modules\x64\d3d') | Out-Null
           Copy-Item $binary (Join-Path $portable 'AyuGram.exe')
           Copy-Item $d3d (Join-Path $portable 'modules\x64\d3d\d3dcompiler_47.dll')
+          # The application pins the helper's digest, so it is copied as built.
+          Copy-Item $helper (Join-Path $portable 'modules\x64\TelegramWidgetHelper.exe')
           & 7z a -mx9 (Join-Path $artifacts 'AyuGram.zip') $portable
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & 7z t (Join-Path $artifacts 'AyuGram.zip')
@@ -401,6 +409,9 @@ jobs:
           if (-not (Test-Path (Join-Path $install 'AyuGram.exe'))) { throw 'Installed application is missing.' }
           if (Test-Path (Join-Path $install 'Updater.exe')) { throw 'Installer included the updater.' }
           if (-not (Test-Path (Join-Path $install 'modules\x64\d3d\d3dcompiler_47.dll'))) { throw 'Installer omitted the D3D module.' }
+          $installedHelper = Join-Path $install 'modules\x64\TelegramWidgetHelper.exe'
+          if (-not (Test-Path $installedHelper)) { throw 'Installer omitted the widget helper.' }
+          if ((Get-FileHash $installedHelper).Hash -ne (Get-FileHash $helper).Hash) { throw 'Installer changed the widget helper.' }
       - uses: actions/upload-artifact@v7
         with:
           name: release-windows

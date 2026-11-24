@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 class History;
 class DocumentData;
+class SendFilesBox;
 struct InlineBotQuery;
 
 namespace style {
@@ -221,6 +222,7 @@ public:
 	[[nodiscard]] rpl::producer<> replyCancelled() const;
 	[[nodiscard]] rpl::producer<> replyCancelledExternal() const;
 	[[nodiscard]] rpl::producer<Api::SendOptions> sendRequests() const;
+	[[nodiscard]] rpl::producer<> replyToForwardRequests() const;
 	[[nodiscard]] rpl::producer<VoiceToSend> sendVoiceRequests() const;
 	[[nodiscard]] rpl::producer<QString> sendCommandRequests() const;
 	[[nodiscard]] rpl::producer<MessageToEdit> editRequests() const;
@@ -229,6 +231,7 @@ public:
 		Fn<void(
 			std::shared_ptr<Ui::PreparedBundle>,
 			Api::SendOptions)> confirmed);
+	void closeSendAsFileBox(bool restoreText = true);
 	void processChosenSticker(FileChosen &&chosen);
 	void clearFieldAfterStickerSend();
 	[[nodiscard]] rpl::producer<FileChosen> fileChosen() const;
@@ -415,6 +418,7 @@ private:
 		not_null<Ui::RpWidget*> button,
 		Fn<void(Api::SendOptions)> send);
 	bool updateReplaceMediaButton();
+	void startMediaReplace();
 	void updateOuterGeometry(QRect rect);
 	void paintBackground(QPainter &p, QRect full, QRect clip);
 
@@ -425,6 +429,7 @@ private:
 	[[nodiscard]] SendMenu::Details sendMenuDetails() const;
 	[[nodiscard]] SendMenu::Details saveMenuDetails() const;
 	[[nodiscard]] SendMenu::Details sendButtonMenuDetails() const;
+	[[nodiscard]] bool canReplyToForward() const;
 	[[nodiscard]] Api::SendOptions adjustedSupportSendOptions(
 		Qt::KeyboardModifiers modifiers) const;
 
@@ -435,7 +440,9 @@ private:
 	void orderControls();
 	void updateFieldPlaceholder();
 	void updateSilentBroadcast();
-	void editMessage(not_null<HistoryItem*> item);
+	void editMessage(
+		not_null<HistoryItem*> item,
+		const TextWithTags &editData);
 
 	void escape();
 	void fieldChanged();
@@ -626,6 +633,7 @@ private:
 	const Fn<void(not_null<DocumentData*>)> _unavailableEmojiPasted;
 
 	rpl::event_stream<Api::SendOptions> _sendCustomRequests;
+	rpl::event_stream<> _replyToForwardRequests;
 	rpl::event_stream<Qt::KeyboardModifiers> _fieldSubmits;
 	rpl::event_stream<Api::SendOptions> _scrollToMaxRequests;
 	rpl::event_stream<> _cancelRequests;
@@ -639,6 +647,7 @@ private:
 	rpl::event_stream<not_null<QKeyEvent*>> _editLastMessageRequests;
 	rpl::event_stream<std::optional<bool>> _attachRequests;
 	Fn<void(std::shared_ptr<Ui::PreparedBundle>, Api::SendOptions)> _sendAsFileConfirmed;
+	QPointer<SendFilesBox> _sendAsFileBox;
 	rpl::event_stream<> _likeToggled;
 	rpl::event_stream<ReplyNextRequest> _replyNextRequests;
 	rpl::event_stream<> _replyCancelled;
@@ -684,6 +693,8 @@ private:
 	rpl::lifetime _sessionLifetime;
 	rpl::lifetime _threadFieldVisibleLifetime;
 	rpl::lifetime _uploaderSubscriptions;
+	// Last, so the handler ends before any members it uses are destroyed.
+	rpl::lifetime _recordingStateLifetime;
 
 };
 
