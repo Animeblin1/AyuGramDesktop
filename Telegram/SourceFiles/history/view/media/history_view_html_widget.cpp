@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_html_widget.h"
 
+#include "ayu/ayu_settings.h"
 #include "data/data_message_reaction_id.h"
 #include "data/data_session.h"
 #include "history/view/history_view_cursor_state.h"
@@ -72,7 +73,7 @@ HtmlWidget::HtmlWidget(
 	Element *replacing)
 : Media(parent)
 , _anchors(anchors)
-, _cardLink(std::make_shared<LambdaClickHandler>([] {})) {
+, _cardLink(std::make_shared<LambdaClickHandler>([this] { cardClicked(); })) {
 	auto descriptor = Tgw::RuntimeDescriptor{
 		.view = parent,
 		.item = realParent,
@@ -102,6 +103,9 @@ HtmlWidget::HtmlWidget(
 			std::move(descriptor.repaint),
 			std::move(descriptor.heavyChanged));
 		replacing->checkHeavyPart();
+	} else if (AyuSettings::getInstance().widgetsOnClick()
+		|| (previous && previous->_deferred)) {
+		_deferred = std::move(descriptor);
 	} else {
 		_runtime = std::make_unique<Tgw::Runtime>(std::move(descriptor));
 	}
@@ -397,7 +401,22 @@ QPointF HtmlWidget::gesturePoint(QPoint point) const {
 
 void HtmlWidget::draw(Painter &p, const PaintContext &context) const {
 	const auto card = cardRect();
-	if (card.isEmpty() || !_runtime) {
+	if (card.isEmpty()) {
+		return;
+	} else if (!_runtime) {
+		// Deferred by AyuSettings::widgetsOnClick(): a pill until clicked.
+		if (_deferred && card.intersects(context.clip)) {
+			drawCardPill(p, context, card, tr::ayu_WidgetsOnClick(tr::now));
+		}
+		if (timeOverCorner()) {
+			_parent->drawInfo(
+				p,
+				context,
+				infoRight(),
+				height(),
+				width(),
+				CornerInfoType());
+		}
 		return;
 	}
 	rememberPlacement();
@@ -435,7 +454,7 @@ void HtmlWidget::draw(Painter &p, const PaintContext &context) const {
 	const auto state = _runtime->state();
 	if (state == Tgw::Runtime::State::Stopped
 		|| state == Tgw::Runtime::State::Failed) {
-		drawStopped(p, context, card);
+		drawCardPill(p, context, card, tr::lng_tgw_stopped(tr::now));
 	}
 	if (timeOverCorner()) {
 		_parent->drawInfo(
@@ -448,10 +467,11 @@ void HtmlWidget::draw(Painter &p, const PaintContext &context) const {
 	}
 }
 
-void HtmlWidget::drawStopped(
-		Painter &p,
-		const PaintContext &context,
-		QRect card) const {
+void HtmlWidget::drawCardPill(
+	Painter &p,
+	const PaintContext &context,
+	QRect card,
+	const QString &text) const {
 	const auto &font = st::msgDateFont;
 	const auto padding = st::msgDateImgPadding;
 	const auto skip = st::msgDateImgDelta;
@@ -463,7 +483,7 @@ void HtmlWidget::drawStopped(
 	if (available <= 0) {
 		return;
 	}
-	const auto label = font->elided(tr::lng_tgw_stopped(tr::now), available);
+	const auto label = font->elided(text, available);
 	if (label.isEmpty()) {
 		return;
 	}
@@ -503,6 +523,8 @@ TextState HtmlWidget::textState(
 			|| (info.cursor != CursorState::None)
 			|| info.customTooltip;
 		return meaningful ? info : result;
+	} else if (_deferred) {
+		result.link = _cardLink;
 	} else if (const auto core = pointerCore()) {
 		using Flag = Ui::Text::StateRequest::Flag;
 		const auto hand = (request.flags & Flag::LookupLink)
@@ -563,6 +585,16 @@ void HtmlWidget::clickHandlerPressedChanged(
 	} else {
 		releaseCard();
 	}
+}
+
+void HtmlWidget::cardClicked() {
+	if (!_deferred) {
+		return;
+	}
+	_runtime = std::make_unique<Tgw::Runtime>(std::move(*_deferred));
+	_deferred = std::nullopt;
+	// countCurrentSize() sizes the fresh runtime on the next layout pass.
+	history()->owner().requestViewResize(_parent);
 }
 
 void HtmlWidget::pressCard() {

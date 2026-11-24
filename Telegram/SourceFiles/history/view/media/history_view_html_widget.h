@@ -109,15 +109,19 @@ private:
 	[[nodiscard]] Tgw::RendererCore *pointerCore() const;
 	void pressCard();
 	void releaseCard();
-	void drawStopped(
+	// ponytail: widgetsOnClick keeps the descriptor here until cardClicked()
+	void cardClicked();
+	void drawCardPill(
 		Painter &p,
 		const PaintContext &context,
-		QRect card) const;
+		QRect card,
+		const QString &text) const;
 	void runtimeHeightChanged();
 	void runtimeHeavyChanged();
 
 	const Tgw::Anchors _anchors;
 	std::unique_ptr<Tgw::Runtime> _runtime;
+	std::optional<Tgw::RuntimeDescriptor> _deferred;
 	const ClickHandlerPtr _cardLink;
 	mutable Tgw::ThemeKey _themeKey;
 	QPoint _pointerPoint;

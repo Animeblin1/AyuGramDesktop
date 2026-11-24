@@ -9552,6 +9552,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_SmoothScroll" = "Плавная прокрутка";
 "ayu_ProfileGradientFromAvatar" = "Градиент профиля из цветов аватара";
 "ayu_WebAppsWindowed" = "Открывать мини-приложения в окне";
+"ayu_WidgetsOnClick" = "Загружать виджеты только по клику";
 "ayu_CaretSpeed" = "Скорость курсора";
 "ayu_CaretBlink" = "Мигание курсора";
 "ayu_BlinkRate" = "Период мигания";

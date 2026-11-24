@@ -692,6 +692,11 @@ void AyuSettings::setWebAppsWindowed(bool val) {
 	_webAppsWindowed = val;
 	save();
 }
+void AyuSettings::setWidgetsOnClick(bool val) {
+	if (_widgetsOnClick.current() == val) return;
+	_widgetsOnClick = val;
+	save();
+}
 void AyuSettings::setCaretSpeed(int val) {
 	val = std::clamp(val, 0, 100);
 	if (_caretSpeed.current() == val) return;
@@ -1252,6 +1257,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"smoothScroll", s._smoothScroll.current()},
 		{"profileGradientFromAvatar", s._profileGradientFromAvatar.current()},
 		{"webAppsWindowed", s._webAppsWindowed.current()},
+		{"widgetsOnClick", s._widgetsOnClick.current()},
 		{"caretSpeed", s._caretSpeed.current()},
 		{"caretBlink", s._caretBlink.current()},
 		{"blinkMs", s._blinkMs.current()},
@@ -1444,6 +1450,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._smoothCaret = j.value("smoothCaret", defaults._smoothCaret.current());
 	s._smoothScroll = j.value("smoothScroll", defaults._smoothScroll.current());
 	s._webAppsWindowed = j.value("webAppsWindowed", defaults._webAppsWindowed.current());
+	s._widgetsOnClick = j.value("widgetsOnClick", defaults._widgetsOnClick.current());
 	s._caretSpeed = j.value("caretSpeed", defaults._caretSpeed.current());
 	s._caretBlink = j.value("caretBlink", defaults._caretBlink.current());
 	s._blinkMs = j.value("blinkMs", defaults._blinkMs.current());

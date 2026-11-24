@@ -318,6 +318,7 @@ public:
 	[[nodiscard]] bool smoothScroll() const { return _smoothScroll.current(); }
 	[[nodiscard]] bool profileGradientFromAvatar() const { return _profileGradientFromAvatar.current(); }
 	[[nodiscard]] bool webAppsWindowed() const { return _webAppsWindowed.current(); }
+	[[nodiscard]] bool widgetsOnClick() const { return _widgetsOnClick.current(); }
 	[[nodiscard]] int caretSpeed() const { return _caretSpeed.current(); }
 	[[nodiscard]] bool caretBlink() const { return _caretBlink.current(); }
 	[[nodiscard]] int blinkMs() const { return _blinkMs.current(); }
@@ -427,6 +428,7 @@ public:
 	void setSmoothScroll(bool val);
 	void setProfileGradientFromAvatar(bool val);
 	void setWebAppsWindowed(bool val);
+	void setWidgetsOnClick(bool val);
 	void setCaretSpeed(int val);
 	void setCaretBlink(bool val);
 	void setBlinkMs(int val);
@@ -558,6 +560,7 @@ public:
 	[[nodiscard]] rpl::producer<bool> smoothScrollValue() const { return _smoothScroll.value(); }
 	[[nodiscard]] rpl::producer<bool> profileGradientFromAvatarValue() const { return _profileGradientFromAvatar.value(); }
 	[[nodiscard]] rpl::producer<bool> webAppsWindowedValue() const { return _webAppsWindowed.value(); }
+	[[nodiscard]] rpl::producer<bool> widgetsOnClickValue() const { return _widgetsOnClick.value(); }
 	[[nodiscard]] rpl::producer<int> caretSpeedValue() const { return _caretSpeed.value(); }
 	[[nodiscard]] rpl::producer<bool> caretBlinkValue() const { return _caretBlink.value(); }
 	[[nodiscard]] rpl::producer<int> blinkMsValue() const { return _blinkMs.value(); }
@@ -751,6 +754,7 @@ private:
 	rpl::variable<bool> _smoothScroll = true;
 	rpl::variable<bool> _profileGradientFromAvatar = true;
 	rpl::variable<bool> _webAppsWindowed = true;
+	rpl::variable<bool> _widgetsOnClick = false;
 	rpl::variable<int> _caretSpeed = 50;
 	rpl::variable<bool> _caretBlink = true;
 	rpl::variable<int> _blinkMs = 500;

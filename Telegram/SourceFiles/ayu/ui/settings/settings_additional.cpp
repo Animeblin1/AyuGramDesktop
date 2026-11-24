@@ -262,6 +262,14 @@ void BuildProfileAndWindows(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.value = settings->webAppsWindowedValue(),
 	});
 
+	ayu.addSettingToggle({
+		.id = u"ayu/widgetsOnClick"_q,
+		.title = tr::ayu_WidgetsOnClick(),
+		.getter = &AyuSettings::widgetsOnClick,
+		.setter = &AyuSettings::setWidgetsOnClick,
+		.value = settings->widgetsOnClickValue(),
+	});
+
 	ayu.addSectionDivider();
 }
 
