@@ -475,6 +475,10 @@ jobs:
           IMAGE: ${{ steps.image.outputs.ref }}
           TDESKTOP_API_ID: ${{ vars.TDESKTOP_API_ID }}
           TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+          # ponytail: hosted runners only have ~7 GB RAM; full ninja parallelism
+          # OOM-kills the runner near the final link (runner lost communication).
+          # Two jobs keep peak memory under the limit; raise if the runner grows.
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
         run: |
           mkdir -p "$CCACHE_DIR"
           nproc
@@ -488,6 +492,7 @@ jobs:
             -e CCACHE_MAXSIZE \
             -e CCACHE_COMPILERCHECK \
             -e CCACHE_SLOPPINESS \
+            -e CMAKE_BUILD_PARALLEL_LEVEL \
             -e TDESKTOP_API_ID \
             -e TDESKTOP_API_HASH \
             "$IMAGE" \
